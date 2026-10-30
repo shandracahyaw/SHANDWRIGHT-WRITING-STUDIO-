@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --primary-bubblegum: #f472b6;
+    --primary-bubblegum-glow: rgba(244, 114, 182, 0.2);
+    --bg-oled: #070709;
+    --bg-card: #0e0f15;
+    --border-dark: #1e202c;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #070709;
+    color: #e2e8f0;
+    overflow-x: hidden;
+  }
+}
+
+/* Novel Typesetting Font Classes */
+.font-garamond {
+  font-family: 'EB Garamond', Garamond, Georgia, serif;
+}
+
+.font-baskerville {
+  font-family: 'Baskervville', Baskerville, Georgia, serif;
+}
+
+.font-merriweather {
+  font-family: 'Merriweather', Georgia, serif;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.font-times {
+  font-family: 'Times New Roman', Times, serif;
+}
+
+/* Drop Cap Styling for Chapter Openers */
+.drop-cap::first-letter {
+  float: left;
+  font-size: 3.5em;
+  line-height: 0.8;
+  padding-top: 4px;
+  padding-right: 10px;
+  padding-bottom: 2px;
+  font-weight: 700;
+  color: #f472b6;
+  font-family: 'Cinzel', 'EB Garamond', serif;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232533;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f472b6;
+}
+
+/* Physical Book Simulation Shadows & Crease */
+.book-spine-shadow {
+  box-shadow: inset 16px 0 25px -12px rgba(0, 0, 0, 0.8), inset -16px 0 25px -12px rgba(0, 0, 0, 0.8);
+}
+
+.book-page-left {
+  box-shadow: inset -24px 0 30px -15px rgba(0, 0, 0, 0.5), -8px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.book-page-right {
+  box-shadow: inset 24px 0 30px -15px rgba(0, 0, 0, 0.5), 8px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Print Styles for Book Export */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page {
+    page-break-after: always;
+    box-shadow: none !important;
+  }
+}

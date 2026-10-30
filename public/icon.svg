@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="128" fill="#070709"/>
+  <!-- Subtle dark geometric halo -->
+  <circle cx="256" cy="256" r="180" fill="none" stroke="#222430" stroke-width="3" stroke-dasharray="8 8" opacity="0.6"/>
+  <circle cx="256" cy="256" r="140" fill="#0e0f16"/>
+  <!-- Stylized Gothic Quill & Thorn / Sword in Bubblegum Pink -->
+  <path d="M370 120 C340 100, 290 120, 240 170 C190 220, 150 280, 140 370 C155 355, 175 340, 200 330 C205 285, 240 245, 290 215 C330 190, 360 155, 370 120 Z" fill="#f472b6"/>
+  <path d="M140 370 L170 380 L180 350 Z" fill="#ffffff"/>
+  <!-- Obsidian Thorn Spikes -->
+  <path d="M220 250 L200 230 L235 240 Z" fill="#fb7185"/>
+  <path d="M280 190 L270 160 L295 180 Z" fill="#fb7185"/>
+  <circle cx="256" cy="256" r="6" fill="#ffffff"/>
+</svg>
