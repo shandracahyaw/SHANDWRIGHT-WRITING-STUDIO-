@@ -16,12 +16,15 @@ export default defineConfig(() => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg'],
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        },
         manifest: {
           id: '/',
-          name: 'Shandwright - Dark Novel Studio',
+          name: 'Shandwright - Writing Studio',
           short_name: 'Shandwright',
-          description: 'Personal Web Novel Studio & World Bible engine for dark genre authors (Dark Fantasy, Sci-Fi Thriller, Grimdark).',
-          theme_color: '#090a0f',
+          description: 'Personal Web Novel & Writing Studio with World Bible and Typesetting.',
+          theme_color: '#f472b6',
           background_color: '#070709',
           display: 'standalone',
           start_url: '/',

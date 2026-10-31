@@ -1,21 +1,159 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Baskervville:ital@0;1&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Questrial&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
-  :root {
-    --primary-bubblegum: #f472b6;
-    --primary-bubblegum-glow: rgba(244, 114, 182, 0.2);
-    --bg-oled: #070709;
-    --bg-card: #0e0f15;
-    --border-dark: #1e202c;
+  :root, [data-theme="dark"] {
+    --app-bg: #070709;
+    --app-header-bg: rgba(7, 7, 9, 0.95);
+    --app-card: #0e0f17;
+    --app-card-sub: #13141f;
+    --app-card-hover: #171926;
+    --app-border: #202230;
+    --app-border-hover: #33364c;
+    --app-text: #f1f5f9;
+    --app-text-muted: #94a3b8;
+    --app-accent: #f472b6;
+    --app-accent-hover: #ec4899;
+    --app-accent-bg: rgba(244, 114, 182, 0.15);
+    --app-book-bg: #0d0e15;
+    --app-book-border: #1f2130;
+    --app-book-text: #e2e8f0;
+  }
+
+  [data-theme="light"] {
+    --app-bg: #f8fafc;
+    --app-header-bg: rgba(248, 250, 252, 0.96);
+    --app-card: #ffffff;
+    --app-card-sub: #f1f5f9;
+    --app-card-hover: #e2e8f0;
+    --app-border: #e2e8f0;
+    --app-border-hover: #cbd5e1;
+    --app-text: #0f172a;
+    --app-text-muted: #64748b;
+    --app-accent: #f43f5e;
+    --app-accent-hover: #e11d48;
+    --app-accent-bg: rgba(244, 63, 94, 0.1);
+    --app-book-bg: #ffffff;
+    --app-book-border: #e2e8f0;
+    --app-book-text: #1e293b;
+  }
+
+  [data-theme="buttercream"] {
+    --app-bg: #FAF7EE;
+    --app-header-bg: rgba(250, 247, 238, 0.96);
+    --app-card: #FFFDF7;
+    --app-card-sub: #F4EFE2;
+    --app-card-hover: #EFE8D6;
+    --app-border: #E5DDCB;
+    --app-border-hover: #D5CAAE;
+    --app-text: #292524;
+    --app-text-muted: #78716C;
+    --app-accent: #D97706;
+    --app-accent-hover: #B45309;
+    --app-accent-bg: rgba(217, 119, 6, 0.12);
+    --app-book-bg: #FFFDF8;
+    --app-book-border: #E5DDCB;
+    --app-book-text: #292524;
+  }
+
+  [data-theme="blush"] {
+    --app-bg: #FFF5F7;
+    --app-header-bg: rgba(255, 245, 247, 0.96);
+    --app-card: #FFFFFF;
+    --app-card-sub: #FFE8EE;
+    --app-card-hover: #FFDFE8;
+    --app-border: #FBCFE8;
+    --app-border-hover: #F472B6;
+    --app-text: #271426;
+    --app-text-muted: #831843;
+    --app-accent: #F43F5E;
+    --app-accent-hover: #E11D48;
+    --app-accent-bg: rgba(244, 63, 94, 0.15);
+    --app-book-bg: #FFFBFD;
+    --app-book-border: #FBCFE8;
+    --app-book-text: #271426;
+  }
+
+  [data-theme="light-teal"] {
+    --app-bg: #E6F4F1;
+    --app-header-bg: rgba(230, 244, 241, 0.96);
+    --app-card: #FFFFFF;
+    --app-card-sub: #D7EFEA;
+    --app-card-hover: #C5EAE3;
+    --app-border: #B2DFD6;
+    --app-border-hover: #0D9488;
+    --app-text: #0F3E38;
+    --app-text-muted: #1E6B62;
+    --app-accent: #0D9488;
+    --app-accent-hover: #0F766E;
+    --app-accent-bg: rgba(13, 148, 136, 0.15);
+    --app-book-bg: #F2FAF8;
+    --app-book-border: #B2DFD6;
+    --app-book-text: #0F3E38;
+  }
+
+  [data-theme="dark-maroon"] {
+    --app-bg: #1A070A;
+    --app-header-bg: rgba(26, 7, 10, 0.96);
+    --app-card: #270B10;
+    --app-card-sub: #361016;
+    --app-card-hover: #45151D;
+    --app-border: #5C1D26;
+    --app-border-hover: #832736;
+    --app-text: #FEF9C3;
+    --app-text-muted: #E4DE9E;
+    --app-accent: #F43F5E;
+    --app-accent-hover: #FB7185;
+    --app-accent-bg: rgba(244, 63, 94, 0.2);
+    --app-book-bg: #20090D;
+    --app-book-border: #5C1D26;
+    --app-book-text: #FEF9C3;
+  }
+
+  [data-theme="dark-burgundy"] {
+    --app-bg: #150619;
+    --app-header-bg: rgba(21, 6, 25, 0.96);
+    --app-card: #220B29;
+    --app-card-sub: #31113B;
+    --app-card-hover: #41174F;
+    --app-border: #562067;
+    --app-border-hover: #7E2F97;
+    --app-text: #FEF9C3;
+    --app-text-muted: #E4DE9E;
+    --app-accent: #E879F9;
+    --app-accent-hover: #F0ABFC;
+    --app-accent-bg: rgba(232, 121, 249, 0.2);
+    --app-book-bg: #1B0820;
+    --app-book-border: #562067;
+    --app-book-text: #FEF9C3;
+  }
+
+  [data-theme="dark-emerald"] {
+    --app-bg: #051610;
+    --app-header-bg: rgba(5, 22, 16, 0.96);
+    --app-card: #0A241B;
+    --app-card-sub: #103427;
+    --app-card-hover: #164635;
+    --app-border: #1C5944;
+    --app-border-hover: #297A5E;
+    --app-text: #FEF9C3;
+    --app-text-muted: #E4DE9E;
+    --app-accent: #34D399;
+    --app-accent-hover: #6EE7B7;
+    --app-accent-bg: rgba(52, 211, 153, 0.2);
+    --app-book-bg: #071C14;
+    --app-book-border: #1C5944;
+    --app-book-text: #FEF9C3;
   }
 
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: #070709;
-    color: #e2e8f0;
+    background-color: var(--app-bg);
+    color: var(--app-text);
     overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 }
 
@@ -40,6 +178,22 @@
   font-family: 'Times New Roman', Times, serif;
 }
 
+.font-consolas {
+  font-family: Consolas, 'Courier New', Courier, monospace !important;
+}
+
+.font-helvetica {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
+.font-poppins {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+.font-questrial {
+  font-family: 'Questrial', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
 /* Drop Cap Styling for Chapter Openers */
 .drop-cap::first-letter {
   float: left;
@@ -49,8 +203,75 @@
   padding-right: 10px;
   padding-bottom: 2px;
   font-weight: 700;
-  color: #f472b6;
+  color: var(--app-accent);
   font-family: 'Cinzel', 'EB Garamond', serif;
+}
+
+/* Rich Text Editor Styling */
+.editor-rich-content {
+  outline: none;
+  word-break: break-word;
+}
+
+.editor-rich-content p {
+  margin-bottom: 1em;
+}
+
+.editor-rich-content b, .editor-rich-content strong {
+  font-weight: 700;
+}
+
+.editor-rich-content i, .editor-rich-content em {
+  font-style: italic;
+}
+
+.editor-rich-content u {
+  text-decoration: underline;
+}
+
+.editor-rich-content mark, .editor-rich-content .highlight-yellow {
+  background-color: rgba(254, 240, 138, 0.4);
+  color: inherit;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.editor-rich-content .highlight-pink {
+  background-color: rgba(244, 114, 182, 0.35);
+  color: inherit;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+.editor-rich-content .highlight-mint {
+  background-color: rgba(167, 243, 208, 0.35);
+  color: inherit;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+/* Lists */
+.editor-rich-content ul {
+  list-style-type: disc;
+  padding-left: 2em;
+  margin-bottom: 1em;
+}
+
+.editor-rich-content ol {
+  padding-left: 2em;
+  margin-bottom: 1em;
+}
+
+.editor-rich-content ol.list-alpha-upper {
+  list-style-type: upper-alpha !important;
+}
+
+.editor-rich-content ol.list-alpha-lower {
+  list-style-type: lower-alpha !important;
+}
+
+.editor-rich-content ol.list-numeric {
+  list-style-type: decimal !important;
 }
 
 /* Custom Scrollbars */
@@ -60,29 +281,29 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #090a0f;
+  background: var(--app-card);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #232533;
+  background: var(--app-border-hover);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #f472b6;
+  background: var(--app-accent);
 }
 
 /* Physical Book Simulation Shadows & Crease */
 .book-spine-shadow {
-  box-shadow: inset 16px 0 25px -12px rgba(0, 0, 0, 0.8), inset -16px 0 25px -12px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 16px 0 25px -12px rgba(0, 0, 0, 0.4), inset -16px 0 25px -12px rgba(0, 0, 0, 0.4);
 }
 
 .book-page-left {
-  box-shadow: inset -24px 0 30px -15px rgba(0, 0, 0, 0.5), -8px 0 20px rgba(0, 0, 0, 0.4);
+  box-shadow: inset -24px 0 30px -15px rgba(0, 0, 0, 0.25), -8px 0 20px rgba(0, 0, 0, 0.15);
 }
 
 .book-page-right {
-  box-shadow: inset 24px 0 30px -15px rgba(0, 0, 0, 0.5), 8px 0 20px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 24px 0 30px -15px rgba(0, 0, 0, 0.25), 8px 0 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Print Styles for Book Export */

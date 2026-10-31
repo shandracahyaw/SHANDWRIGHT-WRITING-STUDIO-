@@ -14,14 +14,16 @@ import { PublishingView } from './components/views/PublishingView';
 import { ProjectsView } from './components/views/ProjectsView';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { ToastContainer } from './components/common/ToastContainer';
+import { ConfirmDialog } from './components/common/ConfirmDialog';
 
 const MainWorkbench: React.FC = () => {
   const { activeTab, isZenMode } = useNovel();
 
   return (
-    <div className="min-h-screen bg-[#070709] text-[#e2e8f0] flex flex-col font-sans">
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] flex flex-col font-sans transition-colors">
       <Navbar />
       <ToastContainer />
+      <ConfirmDialog />
       <OfflineIndicator />
 
       <div className="flex-1">

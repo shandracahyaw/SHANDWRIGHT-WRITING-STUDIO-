@@ -16,7 +16,7 @@ export const MobileBottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#070709]/95 backdrop-blur-lg border-t border-[#1a1c28] pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--app-header-bg)] backdrop-blur-lg border-t border-[var(--app-border)] pb-safe transition-colors">
       <div className="grid grid-cols-5 items-center h-16 max-w-lg mx-auto">
         {items.map((item) => {
           const Icon = item.icon;
@@ -29,14 +29,14 @@ export const MobileBottomNav: React.FC = () => {
             >
               <div
                 className={`p-1 rounded-lg transition-colors ${
-                  isActive ? 'bg-[#f472b6]/15 text-[#f472b6]' : 'text-gray-400'
+                  isActive ? 'bg-[var(--app-accent-bg)] text-[var(--app-accent)]' : 'text-[var(--app-text-muted)]'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-[#f472b6] stroke-[2.5]' : 'text-gray-400'}`} />
+                <Icon className={`w-4 h-4 ${isActive ? 'text-[var(--app-accent)] stroke-[2.5]' : 'text-[var(--app-text-muted)]'}`} />
               </div>
               <span
                 className={`text-[10px] font-medium leading-none tracking-tight ${
-                  isActive ? 'text-[#f472b6] font-semibold' : 'text-gray-400'
+                  isActive ? 'text-[var(--app-accent)] font-semibold' : 'text-[var(--app-text-muted)]'
                 }`}
               >
                 {item.label}

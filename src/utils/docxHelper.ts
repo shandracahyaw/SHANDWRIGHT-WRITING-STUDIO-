@@ -1,6 +1,180 @@
 import { Document, Paragraph, TextRun, HeadingLevel, AlignmentType, Packer } from 'docx';
 import mammoth from 'mammoth';
-import { Chapter, VolumeArc } from '../types/novel';
+import { Chapter, VolumeArc, Project, TypesettingConfig } from '../types/novel';
+
+export async function exportChapterToDocx(
+  project: Project,
+  chapters: Chapter[],
+  typesetting?: TypesettingConfig
+): Promise<Blob> {
+  const sectionsChildren: Paragraph[] = [];
+
+  // Title Page
+  sectionsChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 2400, after: 400 },
+      children: [
+        new TextRun({
+          text: (project.title || 'NASKAH NOVEL').toUpperCase(),
+          bold: true,
+          size: 44, // 22pt
+          font: typesetting?.fontFamily || 'EB Garamond',
+          color: '1A1A1A',
+        }),
+      ],
+    })
+  );
+
+  if (project.subtitle) {
+    sectionsChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 1200 },
+        children: [
+          new TextRun({
+            text: project.subtitle,
+            italics: true,
+            size: 28,
+            font: typesetting?.fontFamily || 'EB Garamond',
+            color: '4A4A4A',
+          }),
+        ],
+      })
+    );
+  }
+
+  sectionsChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 1200, after: 1800 },
+      children: [
+        new TextRun({
+          text: `Ditulis oleh: ${project.authorName || 'Penulis Shandwright'}`,
+          size: 24,
+          font: typesetting?.fontFamily || 'EB Garamond',
+          color: '555555',
+        }),
+      ],
+      pageBreakBefore: false,
+    })
+  );
+
+  if (project.synopsis) {
+    sectionsChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 600, after: 2000 },
+        children: [
+          new TextRun({
+            text: `Sinopsis:\n${project.synopsis}`,
+            italics: true,
+            size: 20,
+            font: typesetting?.fontFamily || 'EB Garamond',
+            color: '666666',
+          }),
+        ],
+      })
+    );
+  }
+
+  // Publisher seal & copyright
+  sectionsChildren.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 800, after: 1400 },
+      children: [
+        new TextRun({
+          text: `Shandwright Studio Publishing • Hak Cipta © ${project.copyrightYear || new Date().getFullYear().toString()} ${project.authorName || ''}`,
+          size: 18,
+          font: typesetting?.fontFamily || 'EB Garamond',
+          color: '888888',
+        }),
+      ],
+    })
+  );
+
+  // Sort chapters
+  const sortedChapters = [...chapters].sort((a, b) => a.chapterNumber - b.chapterNumber);
+
+  for (const chap of sortedChapters) {
+    sectionsChildren.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 2000, after: 800 },
+        pageBreakBefore: true,
+        children: [
+          new TextRun({
+            text: `Bab ${chap.chapterNumber}: ${chap.title}`,
+            bold: true,
+            size: 28,
+            font: typesetting?.fontFamily || 'EB Garamond',
+            color: '111111',
+          }),
+        ],
+      })
+    );
+
+    // Strip html tags if content contains HTML
+    const cleanContent = chap.content.replace(/<[^>]*>/g, '\n');
+    const paragraphs = cleanContent.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    for (const pText of paragraphs) {
+      sectionsChildren.push(
+        new Paragraph({
+          alignment: typesetting?.textAlignment === 'left' ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
+          indent: typesetting?.paragraphIndent !== false ? { firstLine: 720 } : undefined,
+          spacing: { line: Math.round((typesetting?.lineHeight || 1.6) * 240), after: 120 },
+          children: [
+            new TextRun({
+              text: pText.trim(),
+              size: (typesetting?.fontSize || 12) * 2,
+              font: typesetting?.fontFamily || 'EB Garamond',
+              color: '222222',
+            }),
+          ],
+        })
+      );
+    }
+  }
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440,
+              bottom: 1440,
+              left: 1440,
+              right: 1440,
+            },
+          },
+        },
+        children: sectionsChildren,
+      },
+    ],
+  });
+
+  const blob = await Packer.toBlob(doc);
+
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const sanitizedTitle = (project.title || 'naskah')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '_')
+      .replace(/_+/g, '_');
+    a.download = `${sanitizedTitle}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return blob;
+}
 
 export async function exportNovelToDocx(
   bookTitle: string,

@@ -1,21 +1,33 @@
+export type AppTheme =
+  | 'dark'
+  | 'light'
+  | 'buttercream'
+  | 'blush'
+  | 'light-teal'
+  | 'dark-maroon'
+  | 'dark-burgundy'
+  | 'dark-emerald';
 export type ProjectCategory = 'standalone' | 'series';
 export type ProjectStatus = 'Idea' | 'On Progress' | 'Editing' | 'Completed';
-export type DarkGenre = 'Dark Fantasy' | 'Sci-Fi Thriller' | 'Dark Mystery' | 'Grimdark' | 'Cosmic Horror';
+export type DarkGenre = 'General Fiction' | 'Dark Fantasy' | 'Fantasy' | 'Sci-Fi Thriller' | 'Dark Mystery' | 'Grimdark' | 'Romance' | 'Cosmic Horror';
 
 export interface Project {
   id: string;
   title: string;
   subtitle?: string;
+  authorName?: string;
+  copyrightYear?: string;
   synopsis: string;
   category: ProjectCategory;
   seriesTitle?: string;
   seriesOrder?: number;
   genre: DarkGenre;
+  subGenre?: string;
   status: ProjectStatus;
   coverUrl?: string;
-  targetDailyWords: number;
-  todayWordsWritten: number;
-  lastSessionDate: string;
+  targetDailyWords?: number;
+  todayWordsWritten?: number;
+  lastSessionDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,7 +146,16 @@ export interface VisualScene {
 }
 
 export interface TypesettingConfig {
-  fontFamily: 'EB Garamond' | 'Baskervville' | 'Merriweather' | 'Times New Roman' | 'Cinzel';
+  fontFamily:
+    | 'EB Garamond'
+    | 'Baskervville'
+    | 'Merriweather'
+    | 'Times New Roman'
+    | 'Cinzel'
+    | 'Consolas'
+    | 'Helvetica'
+    | 'Poppins'
+    | 'Questrial';
   fontSize: number; // 14 - 24
   lineHeight: number; // 1.4 - 2.2
   paragraphIndent: boolean;

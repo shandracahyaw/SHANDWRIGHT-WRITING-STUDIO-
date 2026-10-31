@@ -10,6 +10,7 @@ import {
   VisualScene,
   TypesettingConfig,
   VersionSnapshot,
+  AppTheme,
 } from '../types/novel';
 import {
   INITIAL_PROJECTS,
@@ -27,6 +28,16 @@ import {
 export type MainTab = 'projects' | 'editor' | 'bible' | 'preview' | 'publish';
 export type BibleSubTab = 'characters' | 'settings' | 'clues' | 'scenes';
 
+export interface ConfirmModalState {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  isDestructive?: boolean;
+  onConfirm: () => void;
+}
+
 interface ToastMessage {
   id: string;
   message: string;
@@ -41,6 +52,20 @@ interface NovelContextType {
   setBibleSubTab: (subTab: BibleSubTab) => void;
   isZenMode: boolean;
   setIsZenMode: (zen: boolean) => void;
+  theme: AppTheme;
+  setTheme: (t: AppTheme) => void;
+
+  // In-app Confirm Modal
+  confirmModal: ConfirmModalState | null;
+  requestConfirm: (options: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  }) => void;
+  closeConfirm: () => void;
 
   // Projects
   projects: Project[];
@@ -156,6 +181,56 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeTab, setActiveTab] = useState<MainTab>('editor');
   const [bibleSubTab, setBibleSubTab] = useState<BibleSubTab>('characters');
   const [isZenMode, setIsZenMode] = useState(false);
+
+  // App Theme: 'dark' | 'light' | 'buttercream' | 'blush'
+  const [theme, setThemeState] = useState<AppTheme>(() => {
+    try {
+      const saved = localStorage.getItem('shandwright_theme');
+      return (saved as AppTheme) || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const applyThemeToDOM = (activeTheme: AppTheme) => {
+    document.documentElement.setAttribute('data-theme', activeTheme);
+    const isDarkVariant = ['dark', 'dark-maroon', 'dark-burgundy', 'dark-emerald'].includes(activeTheme);
+    if (isDarkVariant) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    const themeColors: Record<AppTheme, string> = {
+      dark: '#070709',
+      light: '#f8fafc',
+      buttercream: '#FAF7EE',
+      blush: '#FFF5F7',
+      'light-teal': '#E6F4F1',
+      'dark-maroon': '#1A070A',
+      'dark-burgundy': '#150619',
+      'dark-emerald': '#051610',
+    };
+
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#070709');
+    }
+  };
+
+  const setTheme = useCallback((newTheme: AppTheme) => {
+    setThemeState(newTheme);
+    try {
+      localStorage.setItem('shandwright_theme', newTheme);
+    } catch (e) {
+      console.error(e);
+    }
+    applyThemeToDOM(newTheme);
+  }, []);
+
+  useEffect(() => {
+    applyThemeToDOM(theme);
+  }, [theme]);
 
   // Core Data
   const [projects, setProjects] = useState<Project[]>(() => loadFromStorage('projects', INITIAL_PROJECTS));
@@ -296,18 +371,52 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   }, [activeProjectId]);
 
+  // In-app Confirm Modal State
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+
+  const requestConfirm = useCallback(
+    (options: {
+      title: string;
+      message: string;
+      confirmLabel?: string;
+      cancelLabel?: string;
+      isDestructive?: boolean;
+      onConfirm: () => void;
+    }) => {
+      setConfirmModal({
+        isOpen: true,
+        title: options.title,
+        message: options.message,
+        confirmLabel: options.confirmLabel || 'Hapus',
+        cancelLabel: options.cancelLabel || 'Batal',
+        isDestructive: options.isDestructive !== false,
+        onConfirm: () => {
+          options.onConfirm();
+          setConfirmModal(null);
+        },
+      });
+    },
+    []
+  );
+
+  const closeConfirm = useCallback(() => {
+    setConfirmModal(null);
+  }, []);
+
   // Project CRUD
   const createProject = useCallback((data: Partial<Project>): Project => {
     const id = `proj-${Date.now()}`;
     const newProj: Project = {
       id,
-      title: data.title || 'Proyek Gelap Baru',
+      title: data.title || 'Proyek Baru',
       subtitle: data.subtitle || '',
-      synopsis: data.synopsis || 'Draf sinopsis naskah gelap baru...',
+      authorName: data.authorName || 'Penulis Shandwright',
+      copyrightYear: data.copyrightYear || new Date().getFullYear().toString(),
+      synopsis: data.synopsis || 'Draf sinopsis naskah baru...',
       category: data.category || 'standalone',
       seriesTitle: data.seriesTitle || '',
       seriesOrder: data.seriesOrder || 1,
-      genre: data.genre || 'Dark Fantasy',
+      genre: data.genre || 'General Fiction',
       status: data.status || 'Idea',
       coverUrl: data.coverUrl || '/src/assets/images/sample_book_cover_1793354596229.jpg',
       targetDailyWords: data.targetDailyWords || 1000,
@@ -324,7 +433,7 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newArc: VolumeArc = {
       id: arcId,
       projectId: id,
-      title: 'Arc I: Awal Kutukan',
+      title: 'Arc I: Permulaan',
       order: 1,
       description: 'Bagian pembuka babak pertama.',
     };
@@ -362,13 +471,15 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteProject = useCallback((id: string) => {
     setProjects((prev) => {
-      if (prev.length <= 1) {
-        showToast('Minimal harus ada 1 proyek aktif di Shandwright.', 'error');
-        return prev;
-      }
       const filtered = prev.filter((p) => p.id !== id);
-      if (activeProjectId === id && filtered.length > 0) {
-        setActiveProjectId(filtered[0].id);
+      if (activeProjectId === id) {
+        const nextId = filtered.length > 0 ? filtered[0].id : '';
+        setActiveProjectId(nextId);
+        setChapters((chaps) => {
+          const remainingChaps = chaps.filter((c) => c.projectId === nextId);
+          setActiveChapterId(remainingChaps.length > 0 ? remainingChaps[0].id : '');
+          return chaps;
+        });
       }
       return filtered;
     });
@@ -401,13 +512,17 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const deleteArc = useCallback((id: string) => {
-    if (projectArcs.length <= 1) {
-      showToast('Minimal harus ada satu volume/arc naskah.', 'error');
-      return;
-    }
     setArcs((prev) => prev.filter((a) => a.id !== id));
-    showToast('Volume/Arc dihapus');
-  }, [projectArcs.length, showToast]);
+    setChapters((prev) => {
+      const filtered = prev.filter((c) => c.arcId !== id);
+      if (activeChapter && activeChapter.arcId === id) {
+        const remaining = filtered.filter((c) => c.projectId === activeProjectId);
+        setActiveChapterId(remaining.length > 0 ? remaining[0].id : '');
+      }
+      return filtered;
+    });
+    showToast('Volume/Arc berhasil dihapus');
+  }, [activeChapter, activeProjectId, showToast]);
 
   // Chapter CRUD
   const createChapter = useCallback(
@@ -461,22 +576,16 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const deleteChapter = useCallback((id: string) => {
-    if (projectChapters.length <= 1) {
-      showToast('Minimal harus ada 1 bab tersisa dalam naskah.', 'error');
-      return;
-    }
     setChapters((prev) => {
       const filtered = prev.filter((c) => c.id !== id);
       if (activeChapterId === id) {
         const remainingForProject = filtered.filter((c) => c.projectId === activeProjectId);
-        if (remainingForProject.length > 0) {
-          setActiveChapterId(remainingForProject[0].id);
-        }
+        setActiveChapterId(remainingForProject.length > 0 ? remainingForProject[0].id : '');
       }
       return filtered;
     });
     showToast('Bab berhasil dihapus');
-  }, [projectChapters.length, activeChapterId, activeProjectId, showToast]);
+  }, [activeChapterId, activeProjectId, showToast]);
 
   // Characters
   const createCharacter = useCallback((data: Partial<CharacterProfile>): CharacterProfile => {
@@ -701,6 +810,12 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setBibleSubTab,
         isZenMode,
         setIsZenMode,
+        theme,
+        setTheme,
+
+        confirmModal,
+        requestConfirm,
+        closeConfirm,
 
         projects,
         activeProject,

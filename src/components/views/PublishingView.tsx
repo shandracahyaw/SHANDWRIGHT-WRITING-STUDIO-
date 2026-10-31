@@ -6,15 +6,8 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Calendar,
-  Clock,
-  Sparkles,
-  AlertTriangle,
   Smartphone,
-  BookOpen,
-  Send,
   Sliders,
-  CheckCircle2,
 } from 'lucide-react';
 
 type TargetPlatform = 'Wattpad' | 'Webnovel' | 'Royal Road' | 'Karyakarsa' | 'AO3';
@@ -43,7 +36,7 @@ export const PublishingView: React.FC = () => {
     'Halo pembaca! Terima kasih sudah membaca bab terbaru dari naskah ini. Jangan lupa tinggalkan vote dan komentar!'
   );
   const [authorClosing, setAuthorClosing] = useState(
-    'Bagaimana menurutmu tentang twist di bab ini? Bab berikutnya akan tayang minggu depan.'
+    'Bagaimana menurutmu tentang bab ini? Bab berikutnya akan tayang minggu depan.'
   );
 
   const [copied, setCopied] = useState(false);
@@ -51,13 +44,20 @@ export const PublishingView: React.FC = () => {
   // Selected chapter for publishing
   const targetChapter = activeChapter || projectChapters[0];
 
+  // Helper to strip HTML tags for plain external publishing platforms
+  const stripHtml = (html: string): string => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.innerText || tmp.textContent || '';
+  };
+
   // Formatting engine based on platform preset
   const getFormattedPayload = (): string => {
     if (!targetChapter) return '';
 
     let output = '';
 
-    // 1. Content Warnings (especially for Dark genres on Royal Road / Webnovel / AO3)
+    // 1. Content Warnings
     if (includeContentWarning && selectedWarnings.length > 0) {
       if (platform === 'Royal Road' || platform === 'Webnovel') {
         output += `[b]⚠️ CONTENT WARNINGS:[/b]\n${selectedWarnings.map((w) => `• ${w}`).join('\n')}\n\n---\n\n`;
@@ -79,17 +79,10 @@ export const PublishingView: React.FC = () => {
     output += `${targetChapter.title.toUpperCase()}\n\n`;
 
     // 4. Chapter Body content formatted according to platform
-    const rawParagraphs = targetChapter.content.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+    const cleanText = stripHtml(targetChapter.content || '');
+    const rawParagraphs = cleanText.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
 
-    if (platform === 'Wattpad') {
-      // Wattpad standard: double newline spacing between paragraphs, no manual indent
-      output += rawParagraphs.map((p) => p.trim()).join('\n\n');
-    } else if (platform === 'Royal Road' || platform === 'Webnovel') {
-      // Clean paragraphs with clean breaks
-      output += rawParagraphs.map((p) => p.trim()).join('\n\n');
-    } else {
-      output += rawParagraphs.map((p) => p.trim()).join('\n\n');
-    }
+    output += rawParagraphs.map((p) => p.trim()).join('\n\n');
 
     // 5. Author Closing Note
     if (includeClosingNote && authorClosing.trim()) {
@@ -138,54 +131,51 @@ export const PublishingView: React.FC = () => {
   const currentChapStatus = targetChapter?.publishingStatus?.find((p) => p.platform === platform);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-7 py-6 pb-24 md:pb-12 text-[#e2e8f0]">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-[#1b1c28]">
+    <div className="max-w-7xl mx-auto px-4 lg:px-7 py-5 pb-24 md:pb-12 text-[var(--app-text)] transition-colors">
+      {/* Simplified Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--app-border)]">
         <div>
-          <span className="text-xs uppercase tracking-widest text-[#f472b6] font-medium font-cinzel">
-            Publishing Connector &amp; Sync Helper
-          </span>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mt-1">
-            Integrasi Platform Publikasi
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--app-text)]">
+            Publikasi Naskah
           </h1>
-          <p className="text-xs md:text-sm text-gray-400 mt-1 max-w-xl">
-            Format bersih satu klik untuk menyalin naskah langsung ke Wattpad, Webnovel, Royal Road, atau Karyakarsa tanpa kendala indentasi ganda.
+          <p className="text-xs text-[var(--app-text-muted)] mt-0.5">
+            Format bersih satu klik untuk platform baca luar (Wattpad, Webnovel, Royal Road, dll).
           </p>
         </div>
 
         {/* Copy Clean Action */}
         <button
           onClick={handleCopyClean}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#f472b6] to-[#ec4899] text-black font-semibold text-xs hover:opacity-95 active:scale-95 transition-all shadow-[0_0_20px_rgba(244,114,182,0.3)]"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[var(--app-accent)] text-black font-semibold text-xs hover:opacity-90 active:scale-95 transition-all shadow-sm"
         >
-          {copied ? <Check className="w-4 h-4 stroke-[3]" /> : <Copy className="w-4 h-4" />}
-          <span>{copied ? 'Tersalin Bersih!' : `Salin Bersih untuk ${platform}`}</span>
+          {copied ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
+          <span>{copied ? 'Tersalin Bersih!' : `Salin untuk ${platform}`}</span>
         </button>
       </div>
 
       {/* Platform Presets Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-4">
         {(['Wattpad', 'Royal Road', 'Webnovel', 'Karyakarsa', 'AO3'] as TargetPlatform[]).map((p) => {
           const isActive = platform === p;
           return (
             <button
               key={p}
               onClick={() => setPlatform(p)}
-              className={`p-3 rounded-xl border text-center transition-all ${
+              className={`p-2.5 rounded-xl border text-center transition-all ${
                 isActive
-                  ? 'border-[#f472b6] bg-[#161725] text-[#f472b6] shadow-sm'
-                  : 'border-[#1e202e] bg-[#0c0d14] text-gray-400 hover:text-white hover:bg-[#11121c]'
+                  ? 'border-[var(--app-accent)] bg-[var(--app-accent-bg)] text-[var(--app-accent)] shadow-xs font-semibold'
+                  : 'border-[var(--app-border)] bg-[var(--app-card)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-card-sub)]'
               }`}
             >
               <span className="text-xs font-bold block">{p}</span>
-              <span className="text-[10px] text-gray-500 block mt-0.5">
+              <span className="text-[10px] opacity-75 block mt-0.5">
                 {p === 'Wattpad'
-                  ? 'Spasi Ganda Tanpa Indent'
+                  ? 'Spasi Ganda'
                   : p === 'Royal Road'
-                  ? 'BBCode + Author Note'
+                  ? 'BBCode Preset'
                   : p === 'Webnovel'
-                  ? 'Clean Paragraphs'
-                  : 'Plain / Rich Text'}
+                  ? 'Clean Text'
+                  : 'Clean Format'}
               </span>
             </button>
           );
@@ -193,18 +183,18 @@ export const PublishingView: React.FC = () => {
       </div>
 
       {/* Main Grid: Settings & Live Preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mt-5">
         {/* Left Column: Chapter Select & Publishing Metadata */}
-        <div className="lg:col-span-5 space-y-5">
+        <div className="lg:col-span-5 space-y-4">
           {/* Chapter Selector */}
-          <div className="rounded-2xl border border-[#1b1c28] bg-[#090a0f] p-5">
-            <label className="text-xs uppercase font-semibold text-gray-400 block mb-2">
-              Pilih Bab yang Akan Dipublikasikan:
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-4">
+            <label className="text-xs uppercase font-semibold text-[var(--app-text-muted)] block mb-1.5">
+              Pilih Bab:
             </label>
             <select
               value={targetChapter?.id}
               onChange={(e) => setActiveChapterId(e.target.value)}
-              className="w-full rounded-xl border border-[#222432] bg-[#12131c] px-3.5 py-2 text-xs text-white focus:outline-none"
+              className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:outline-none"
             >
               {projectChapters.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -214,42 +204,42 @@ export const PublishingView: React.FC = () => {
             </select>
 
             {/* Publication Status Card */}
-            <div className="mt-4 p-3.5 rounded-xl border border-[#1e202e] bg-[#10111a] space-y-3">
+            <div className="mt-3.5 p-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] space-y-2.5">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Status di {platform}:</span>
+                <span className="text-[var(--app-text-muted)]">Status di {platform}:</span>
                 <span
-                  className={`font-mono text-[11px] uppercase px-2 py-0.5 rounded border ${
+                  className={`font-mono text-[10px] uppercase px-2 py-0.5 rounded border ${
                     currentChapStatus?.status === 'published'
-                      ? 'text-emerald-400 border-emerald-400/20 bg-emerald-400/10'
+                      ? 'text-emerald-500 border-emerald-500/20 bg-emerald-500/10'
                       : currentChapStatus?.status === 'scheduled'
-                      ? 'text-sky-400 border-sky-400/20 bg-sky-400/10'
-                      : 'text-amber-400 border-amber-400/20 bg-amber-400/10'
+                      ? 'text-sky-500 border-sky-500/20 bg-sky-500/10'
+                      : 'text-amber-500 border-amber-500/20 bg-amber-500/10'
                   }`}
                 >
-                  {currentChapStatus?.status || 'Draft (Belum Tayang)'}
+                  {currentChapStatus?.status || 'Draft'}
                 </span>
               </div>
 
               {/* Status Selector Buttons */}
-              <div className="flex gap-1.5 pt-1">
+              <div className="flex gap-1.5 pt-0.5">
                 <button
                   type="button"
-                  onClick={() => handleUpdateStatus(targetChapter.id, 'draft')}
-                  className="flex-1 py-1.5 rounded-lg border border-[#222432] bg-[#12131c] text-[11px] text-gray-300 hover:text-white hover:border-gray-500"
+                  onClick={() => handleUpdateStatus(targetChapter?.id || '', 'draft')}
+                  className="flex-1 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[11px] text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
                 >
                   Draft
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUpdateStatus(targetChapter.id, 'scheduled')}
-                  className="flex-1 py-1.5 rounded-lg border border-[#222432] bg-[#12131c] text-[11px] text-sky-400 hover:border-sky-500"
+                  onClick={() => handleUpdateStatus(targetChapter?.id || '', 'scheduled')}
+                  className="flex-1 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[11px] text-sky-500"
                 >
                   Jadwalkan
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleUpdateStatus(targetChapter.id, 'published')}
-                  className="flex-1 py-1.5 rounded-lg border border-[#222432] bg-[#12131c] text-[11px] text-emerald-400 hover:border-emerald-500"
+                  onClick={() => handleUpdateStatus(targetChapter?.id || '', 'published')}
+                  className="flex-1 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[11px] text-emerald-500"
                 >
                   Sudah Terbit
                 </button>
@@ -257,14 +247,15 @@ export const PublishingView: React.FC = () => {
 
               {/* URL Input */}
               <div>
-                <label className="text-[10px] text-gray-400 uppercase font-medium block mb-1">
+                <label className="text-[10px] text-[var(--app-text-muted)] uppercase font-medium block mb-1">
                   URL Tayang di {platform} (Opsional):
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <input
                     type="text"
                     defaultValue={currentChapStatus?.publishedUrl || ''}
                     onBlur={(e) =>
+                      targetChapter &&
                       handleUpdateStatus(
                         targetChapter.id,
                         currentChapStatus?.status || 'published',
@@ -272,15 +263,15 @@ export const PublishingView: React.FC = () => {
                         e.target.value
                       )
                     }
-                    placeholder={`https://${platform.toLowerCase().replace(/\s+/g, '')}.com/story/...`}
-                    className="flex-1 rounded-lg border border-[#222432] bg-[#12131c] px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                    placeholder={`https://${platform.toLowerCase().replace(/\s+/g, '')}.com/...`}
+                    className="flex-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-2.5 py-1 text-xs text-[var(--app-text)] focus:outline-none"
                   />
                   {currentChapStatus?.publishedUrl && (
                     <a
                       href={currentChapStatus.publishedUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg border border-[#222432] bg-[#12131c] text-gray-300 hover:text-[#f472b6]"
+                      className="p-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"
                       title="Buka Halaman Publikasi"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -292,33 +283,32 @@ export const PublishingView: React.FC = () => {
           </div>
 
           {/* Preset Customization */}
-          <div className="rounded-2xl border border-[#1b1c28] bg-[#090a0f] p-5 space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-              <Sliders className="w-3.5 h-3.5 text-[#f472b6]" />
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-4 space-y-3.5">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--app-text)] flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-[var(--app-accent)]" />
               Pengaturan Tambahan Naskah
             </h3>
 
             {/* Content Warnings */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs text-[var(--app-text)] cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeContentWarning}
                   onChange={(e) => setIncludeContentWarning(e.target.checked)}
-                  className="accent-[#f472b6]"
+                  className="accent-[var(--app-accent)]"
                 />
-                <span className="font-semibold text-rose-300">
-                  Sematkan Peringatan Konten (Content Warning)
+                <span className="font-semibold text-rose-400">
+                  Sematkan Peringatan Konten
                 </span>
               </label>
 
               {includeContentWarning && (
-                <div className="pl-5 space-y-1 text-xs text-gray-400">
+                <div className="pl-5 space-y-1 text-xs text-[var(--app-text-muted)]">
                   {[
                     'Dark Fantasy & Psychological Horror',
                     'Graphic Violence & Blood',
                     'Morally Gray Themes',
-                    'Substance & Blood Magic Rituals',
                   ].map((warn) => (
                     <label key={warn} className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -331,7 +321,7 @@ export const PublishingView: React.FC = () => {
                             setSelectedWarnings(selectedWarnings.filter((w) => w !== warn));
                           }
                         }}
-                        className="accent-[#f472b6]"
+                        className="accent-[var(--app-accent)]"
                       />
                       <span>{warn}</span>
                     </label>
@@ -341,43 +331,43 @@ export const PublishingView: React.FC = () => {
             </div>
 
             {/* Author Notes */}
-            <div className="space-y-3 pt-2 border-t border-[#1a1c28]">
+            <div className="space-y-2.5 pt-2 border-t border-[var(--app-border)]">
               <div>
-                <label className="flex items-center gap-2 text-xs text-gray-300 mb-1 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] mb-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includeOpeningNote}
                     onChange={(e) => setIncludeOpeningNote(e.target.checked)}
-                    className="accent-[#f472b6]"
+                    className="accent-[var(--app-accent)]"
                   />
-                  <span>Catatan Pembuka Penulis (Opening Note)</span>
+                  <span>Catatan Pembuka Penulis</span>
                 </label>
                 {includeOpeningNote && (
                   <textarea
                     rows={2}
                     value={authorOpening}
                     onChange={(e) => setAuthorOpening(e.target.value)}
-                    className="w-full rounded-xl border border-[#222432] bg-[#12131c] p-2 text-xs text-white focus:outline-none resize-none"
+                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] p-2 text-xs text-[var(--app-text)] focus:outline-none resize-none"
                   />
                 )}
               </div>
 
               <div>
-                <label className="flex items-center gap-2 text-xs text-gray-300 mb-1 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-[var(--app-text)] mb-1 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includeClosingNote}
                     onChange={(e) => setIncludeClosingNote(e.target.checked)}
-                    className="accent-[#f472b6]"
+                    className="accent-[var(--app-accent)]"
                   />
-                  <span>Catatan Penutup / Call to Action (Closing Note)</span>
+                  <span>Catatan Penutup / Interaksi Pembaca</span>
                 </label>
                 {includeClosingNote && (
                   <textarea
                     rows={2}
                     value={authorClosing}
                     onChange={(e) => setAuthorClosing(e.target.value)}
-                    className="w-full rounded-xl border border-[#222432] bg-[#12131c] p-2 text-xs text-white focus:outline-none resize-none"
+                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] p-2 text-xs text-[var(--app-text)] focus:outline-none resize-none"
                   />
                 )}
               </div>
@@ -387,31 +377,31 @@ export const PublishingView: React.FC = () => {
 
         {/* Right Column: Platform Screen Simulator Preview */}
         <div className="lg:col-span-7">
-          <div className="rounded-2xl border border-[#1b1c28] bg-[#090a0f] p-5 flex flex-col h-full">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1b1c28]">
+          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-4 flex flex-col h-full">
+            <div className="flex items-center justify-between pb-2.5 border-b border-[var(--app-border)]">
               <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-[#f472b6]" />
-                <span className="text-xs font-bold uppercase text-white">
-                  Pratinjau Format Bersih: {platform}
+                <Smartphone className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                <span className="text-xs font-bold uppercase text-[var(--app-text)]">
+                  Pratinjau Format: {platform}
                 </span>
               </div>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-[var(--app-text-muted)] font-mono">
                 {targetChapter?.wordCount || 0} kata
               </span>
             </div>
 
             {/* Live payload container */}
-            <div className="mt-4 flex-1 bg-[#050608] border border-[#1c1d28] rounded-xl p-4 md:p-6 overflow-y-auto max-h-[580px] font-sans text-xs md:text-sm leading-relaxed text-gray-300 whitespace-pre-wrap select-all">
+            <div className="mt-3 flex-1 bg-[var(--app-card-sub)] border border-[var(--app-border)] rounded-xl p-4 md:p-5 overflow-y-auto max-h-[540px] font-sans text-xs md:text-sm leading-relaxed text-[var(--app-text)] whitespace-pre-wrap select-all">
               {getFormattedPayload()}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-[#181924] flex items-center justify-between">
-              <span className="text-[11px] text-gray-500">
-                Format teks telah disanitasi: bebas tag formatting rusak, spasi rapi.
+            <div className="mt-3 pt-2.5 border-t border-[var(--app-border)] flex items-center justify-between">
+              <span className="text-[11px] text-[var(--app-text-muted)]">
+                Format teks telah disanitasi: rapi dan siap paste.
               </span>
               <button
                 onClick={handleCopyClean}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#f472b6] text-black font-semibold text-xs hover:bg-[#ec4899] transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--app-accent)] text-black font-semibold text-xs hover:opacity-90 transition-all"
               >
                 {copied ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? 'Tersalin!' : 'Salin Semua'}</span>

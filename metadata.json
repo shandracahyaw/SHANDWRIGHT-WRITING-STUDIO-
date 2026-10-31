@@ -1,6 +1,6 @@
 {
-  "name": "Shandwright - Dark Novel Studio",
-  "description": "Personal Web Novel Studio & World Bible engine for dark genre authors (Dark Fantasy, Sci-Fi Thriller, Grimdark).",
+  "name": "Shandwright - Writing Studio",
+  "description": "Personal Web Novel & Writing Studio with World Bible, rich-text typesetting, physical book preview, and publishing sync.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
