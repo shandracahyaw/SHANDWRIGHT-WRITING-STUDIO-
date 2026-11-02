@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNovel, MainTab } from '../../context/NovelContext';
 import { AppTheme } from '../../types/novel';
+import { useLocalAuth } from '../auth/LocalAuthGate';
 import { PWAInstallButton } from '../pwa/PWAInstallButton';
 import {
   Feather,
@@ -14,6 +15,7 @@ import {
   Check,
   Maximize,
   Minimize,
+  Lock,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -28,6 +30,8 @@ export const Navbar: React.FC = () => {
     exportStudioBackup,
     importStudioBackup,
   } = useNovel();
+
+  const { username, lockStudio, openAccountSettings } = useLocalAuth();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
@@ -120,7 +124,7 @@ export const Navbar: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <span className="font-cinzel text-base tracking-wider font-bold text-[var(--app-text)] whitespace-nowrap">
-                SHANDWRIGHT
+                jaeyyyiii
               </span>
               <span className="text-[10px] tracking-widest text-[var(--app-accent)] font-semibold -mt-1 uppercase">
                 WRITING STUDIO
@@ -274,6 +278,16 @@ export const Navbar: React.FC = () => {
               onChange={handleFileChange}
             />
           </div>
+
+          {/* Lock Studio button */}
+          <button
+            onClick={lockStudio}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs text-[var(--app-text)] hover:border-red-400 hover:text-red-400 transition-colors"
+            title={`Terkunci sebagai "${username}". Klik untuk mengunci studio.`}
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-500" />
+            <span className="hidden xl:inline text-[11px] font-medium">Kunci</span>
+          </button>
 
           {/* PWA Mobile Download Button (Always present) */}
           <PWAInstallButton />

@@ -21,8 +21,8 @@ export default defineConfig(() => {
         },
         manifest: {
           id: '/',
-          name: 'Shandwright - Writing Studio',
-          short_name: 'Shandwright',
+          name: 'jaeyyyiii — Writing Studio',
+          short_name: 'jaeyyyiii',
           description: 'Personal Web Novel & Writing Studio with World Bible and Typesetting.',
           theme_color: '#f472b6',
           background_color: '#070709',

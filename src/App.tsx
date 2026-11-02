@@ -16,6 +16,8 @@ import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
 
+import { LocalAuthGate } from './components/auth/LocalAuthGate';
+
 const MainWorkbench: React.FC = () => {
   const { activeTab, isZenMode } = useNovel();
 
@@ -41,8 +43,10 @@ const MainWorkbench: React.FC = () => {
 
 export default function App() {
   return (
-    <NovelProvider>
-      <MainWorkbench />
-    </NovelProvider>
+    <LocalAuthGate>
+      <NovelProvider>
+        <MainWorkbench />
+      </NovelProvider>
+    </LocalAuthGate>
   );
 }

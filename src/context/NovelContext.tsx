@@ -89,7 +89,7 @@ interface NovelContextType {
   activeChapter: Chapter | undefined;
   activeChapterId: string;
   setActiveChapterId: (id: string) => void;
-  createChapter: (arcId: string, title?: string, content?: string) => Chapter;
+  createChapter: (arcId?: string, title?: string, content?: string) => Chapter;
   updateChapter: (id: string, updates: Partial<Chapter>) => void;
   deleteChapter: (id: string) => void;
 
@@ -445,7 +445,7 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       projectId: id,
       arcId: arcId,
       chapterNumber: 1,
-      title: 'Bab 1: Permulaan',
+      title: 'Chapter 1: Permulaan',
       content: '',
       status: 'Idea',
       wordCount: 0,
@@ -498,12 +498,12 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newArc: VolumeArc = {
       id,
       projectId: activeProjectId,
-      title: data.title || `Arc ${projectArcs.length + 1}`,
+      title: data.title || `Bagian ${projectArcs.length + 1}`,
       order: projectArcs.length + 1,
       description: data.description || '',
     };
     setArcs((prev) => [...prev, newArc]);
-    showToast(`Arc "${newArc.title}" ditambahkan`);
+    showToast(`Bagian "${newArc.title}" ditambahkan`);
     return newArc;
   }, [activeProjectId, projectArcs.length, showToast]);
 
@@ -521,24 +521,25 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return filtered;
     });
-    showToast('Volume/Arc berhasil dihapus');
+    showToast('Bagian berhasil dihapus');
   }, [activeChapter, activeProjectId, showToast]);
 
   // Chapter CRUD
   const createChapter = useCallback(
-    (arcId: string, title?: string, content: string = ''): Chapter => {
+    (arcId?: string, title?: string, content: string = ''): Chapter => {
       const id = `chap-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
       const nextNum = projectChapters.length + 1;
       const cleanContent = content || '';
       const words = cleanContent.trim() ? cleanContent.trim().split(/\s+/).length : 0;
       const chars = cleanContent.length;
+      const effectiveArcId = arcId || projectArcs[0]?.id || 'default-arc';
 
       const newChap: Chapter = {
         id,
         projectId: activeProjectId,
-        arcId,
+        arcId: effectiveArcId,
         chapterNumber: nextNum,
-        title: title || `Bab ${nextNum}: Draf Baru`,
+        title: title || `Chapter ${nextNum}`,
         content: cleanContent,
         status: cleanContent.length > 0 ? 'On Progress' : 'Idea',
         wordCount: words,
@@ -550,10 +551,10 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setChapters((prev) => [...prev, newChap]);
       setActiveChapterId(id);
-      showToast(`Bab "${newChap.title}" dibuat`);
+      showToast(`${newChap.title} berhasil dibuat`);
       return newChap;
     },
-    [activeProjectId, projectChapters.length, showToast]
+    [activeProjectId, projectArcs, projectChapters.length, showToast]
   );
 
   const updateChapter = useCallback((id: string, updates: Partial<Chapter>) => {

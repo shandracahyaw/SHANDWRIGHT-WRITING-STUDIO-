@@ -36,6 +36,7 @@ import {
   Baseline,
   Eye,
   Sparkles,
+  Quote,
 } from 'lucide-react';
 
 const TEXT_COLORS = [
@@ -323,6 +324,67 @@ export const EditorView: React.FC = () => {
     }
   };
 
+  // Inotes-style Quote / Callout Block for dialogue, monologues, or highlighted character words
+  const handleInsertQuote = () => {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+      const range = selection.getRangeAt(0);
+      const selectedText = range.toString().trim();
+      if (selectedText) {
+        const quoteBlock = document.createElement('blockquote');
+        quoteBlock.className = 'inote-quote';
+        quoteBlock.innerHTML = `"${selectedText.replace(/^["“”']|["“”']$/g, '')}"`;
+        range.deleteContents();
+        range.insertNode(quoteBlock);
+
+        // Add blank paragraph after quote block so writer can seamlessly continue typing
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        quoteBlock.parentNode?.insertBefore(p, quoteBlock.nextSibling);
+
+        const newRange = document.createRange();
+        newRange.setStart(p, 0);
+        newRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    } else {
+      const quoteHtml = `<blockquote class="inote-quote">"Kutipan atau monolog tokoh di sini..."</blockquote><p><br></p>`;
+      execCmd('insertHTML', quoteHtml);
+    }
+    handleEditorInput();
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+  };
+
+  // Continuous chapters list: Prolog first, followed by Chapter 1, 2, 3...
+  const sortedChapters = React.useMemo(() => {
+    return [...projectChapters].sort((a, b) => {
+      const isPrologA = a.title.toLowerCase().includes('prolog');
+      const isPrologB = b.title.toLowerCase().includes('prolog');
+      if (isPrologA && !isPrologB) return -1;
+      if (!isPrologA && isPrologB) return 1;
+      return (a.chapterNumber || 0) - (b.chapterNumber || 0);
+    });
+  }, [projectChapters]);
+
+  const getNextChapterNumber = () => {
+    const numbered = projectChapters.filter(
+      (c) => !c.title.toLowerCase().includes('prolog')
+    );
+    return numbered.length + 1;
+  };
+
+  const handleCreateProlog = () => {
+    const hasProlog = projectChapters.some((c) => c.title.toLowerCase().includes('prolog'));
+    if (hasProlog) {
+      showToast('Prolog sudah ada dalam naskah', 'info');
+      return;
+    }
+    createChapter(undefined, 'Prolog', '<p>Tulis prolog cerita di sini...</p>');
+  };
+
   // Highlight Text (10 Colors)
   const handleHighlight = (color: string) => {
     if (color === 'transparent') {
@@ -439,9 +501,8 @@ export const EditorView: React.FC = () => {
       status: 'On Progress',
       coverUrl: '/src/assets/images/sample_book_cover_1793354596229.jpg',
     });
-    // Create initial arc & chapter for the new story
-    const arc = createArc({ projectId: created.id, title: 'Arc I: Permulaan' });
-    createChapter(arc.id, 'Bab 1: Permulaan');
+    // Create initial chapter for the new story
+    createChapter(undefined, 'Chapter 1: Permulaan');
     setActiveProjectId(created.id);
     setShowNewStoryModal(false);
     setNewStoryForm({
@@ -624,7 +685,7 @@ export const EditorView: React.FC = () => {
         />
       )}
 
-      {/* LEFT SIDEBAR: CHAPTERS & ARCS NAVIGATOR */}
+      {/* LEFT SIDEBAR: CHAPTERS NAVIGATOR (NO ARCS) */}
       {!isZenMode && (
         <aside
           className={`fixed md:relative inset-y-0 left-0 z-50 md:z-20 border-r border-[var(--app-border)] bg-[var(--app-card)] transition-all duration-300 flex flex-col h-full ${
@@ -638,14 +699,14 @@ export const EditorView: React.FC = () => {
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-[var(--app-accent)]" />
               <span className="text-xs font-semibold uppercase tracking-wider text-[var(--app-text)]">
-                Struktur Cerita
+                Daftar Chapter
               </span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => docxInputRef.current?.click()}
                 className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-accent)] rounded-lg transition-colors"
-                title="Impor Bab dari .docx"
+                title="Impor Chapter dari .docx"
               >
                 <Upload className="w-3.5 h-3.5" />
               </button>
@@ -657,124 +718,113 @@ export const EditorView: React.FC = () => {
                 onChange={handleDocxImportChapter}
               />
               <button
-                onClick={() => {
-                  const title = prompt('Nama Arc / Bagian Baru:', `Arc ${projectArcs.length + 1}`);
-                  if (title) createArc({ title });
-                }}
+                onClick={handleCreateProlog}
+                className="px-2 py-1 text-[10px] font-semibold text-[var(--app-accent)] bg-[var(--app-accent-bg)] border border-[var(--app-border)] hover:opacity-90 rounded-lg transition-colors"
+                title="Tambah Halaman Prolog"
+              >
+                + Prolog
+              </button>
+              <button
+                onClick={() => createChapter(undefined, `Chapter ${getNextChapterNumber()}`)}
                 className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-accent)] rounded-lg transition-colors"
-                title="Tambah Arc Baru"
+                title="Tambah Chapter Baru"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-text)] rounded-lg transition-colors ml-0.5"
-                title="Tutup Daftar Bab"
+                title="Tutup Daftar Chapter"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Arcs & Chapters List */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-4">
-            {projectArcs.length === 0 ? (
-              <div className="text-center py-8 text-xs text-[var(--app-text-muted)]">
-                <p>Belum ada arc naskah.</p>
-                <button
-                  onClick={() => createArc({ title: 'Arc I: Permulaan' })}
-                  className="mt-2 text-[var(--app-accent)] underline font-semibold"
-                >
-                  + Tambah Arc Pertama
-                </button>
+          {/* Continuous Chapters List */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+            {sortedChapters.length === 0 ? (
+              <div className="text-center py-8 text-xs text-[var(--app-text-muted)] space-y-2">
+                <p>Belum ada chapter naskah.</p>
+                <div className="flex flex-col gap-1.5 items-center justify-center">
+                  <button
+                    onClick={() => createChapter(undefined, 'Chapter 1: Permulaan')}
+                    className="text-[var(--app-accent)] underline font-semibold text-xs"
+                  >
+                    + Buat Chapter 1
+                  </button>
+                  <button
+                    onClick={handleCreateProlog}
+                    className="text-[var(--app-text-muted)] hover:text-[var(--app-accent)] text-[11px]"
+                  >
+                    + Tambah Prolog
+                  </button>
+                </div>
               </div>
             ) : (
-              projectArcs.map((arc) => {
-                const arcChapters = projectChapters.filter((c) => c.arcId === arc.id);
+              sortedChapters.map((chap) => {
+                const isSelected = chap.id === activeChapterId;
+                const isProlog = chap.title.toLowerCase().includes('prolog');
                 return (
-                  <div key={arc.id} className="space-y-1">
-                    <div className="flex items-center justify-between px-2 py-1 text-xs text-[var(--app-text-muted)] font-medium group">
-                      <span className="truncate text-[var(--app-text)] font-semibold">{arc.title}</span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => createChapter(arc.id)}
-                          className="p-1 text-[var(--app-accent)] hover:bg-[var(--app-card-sub)] rounded"
-                          title="Tambah Bab"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            requestConfirm({
-                              title: 'Hapus Arc / Bagian',
-                              message: `Yakin ingin menghapus volume "${arc.title}" beserta seluruh bab di dalamnya?`,
-                              confirmLabel: 'Hapus Arc',
-                              onConfirm: () => deleteArc(arc.id),
-                            });
-                          }}
-                          className="p-1 text-red-400 hover:bg-[var(--app-card-sub)] rounded"
-                          title="Hapus Arc"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                  <div
+                    key={chap.id}
+                    onClick={() => {
+                      setActiveChapterId(chap.id);
+                      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                        setSidebarOpen(false);
+                      }
+                    }}
+                    className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-[var(--app-accent-bg)] text-[var(--app-accent)] font-medium shadow-sm border border-[var(--app-border)]'
+                        : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-card-sub)]'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        {isProlog && (
+                          <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[var(--app-accent)] text-black font-semibold">
+                            Prolog
+                          </span>
+                        )}
+                        <p className="truncate font-medium">
+                          {chap.title || `Chapter ${chap.chapterNumber}`}
+                        </p>
                       </div>
+                      <span className="text-[10px] font-mono text-[var(--app-text-muted)] mt-0.5 block">
+                        {chap.wordCount || 0} kata
+                      </span>
                     </div>
 
-                    <div className="space-y-0.5 pl-1.5 border-l border-[var(--app-border)]">
-                      {arcChapters.length === 0 ? (
-                        <div className="text-[11px] text-[var(--app-text-muted)] px-2.5 py-1">
-                          Kosong. Klik + untuk membuat bab.
-                        </div>
-                      ) : (
-                        arcChapters.map((chap) => {
-                          const isSelected = chap.id === activeChapterId;
-                          return (
-                            <div
-                              key={chap.id}
-                              onClick={() => {
-                                setActiveChapterId(chap.id);
-                                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                                  setSidebarOpen(false);
-                                }
-                              }}
-                              className={`group flex items-center justify-between px-2.5 py-2 rounded-xl text-xs cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-[var(--app-accent-bg)] text-[var(--app-accent)] font-medium shadow-sm border border-[var(--app-border)]'
-                                  : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-card-sub)]'
-                              }`}
-                            >
-                              <div className="min-w-0 flex-1 pr-2">
-                                <p className="truncate">
-                                  {chap.title || `Bab ${chap.chapterNumber}`}
-                                </p>
-                                <span className="text-[10px] font-mono text-[var(--app-text-muted)]">
-                                  {chap.wordCount || 0} kata
-                                </span>
-                              </div>
-
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  requestConfirm({
-                                    title: 'Hapus Bab Naskah',
-                                    message: `Yakin ingin menghapus "${chap.title || `Bab ${chap.chapterNumber}`}"?`,
-                                    confirmLabel: 'Hapus Bab',
-                                    onConfirm: () => deleteChapter(chap.id),
-                                  });
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-[var(--app-text-muted)] hover:text-red-400 rounded transition-opacity"
-                                title="Hapus Bab"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestConfirm({
+                          title: 'Hapus Chapter Naskah',
+                          message: `Yakin ingin menghapus "${chap.title || `Chapter ${chap.chapterNumber}`}"?`,
+                          confirmLabel: 'Hapus Chapter',
+                          onConfirm: () => deleteChapter(chap.id),
+                        });
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--app-text-muted)] hover:text-red-400 rounded transition-opacity"
+                      title="Hapus Chapter"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 );
               })
+            )}
+
+            {/* Quick Add Chapter at the bottom */}
+            {sortedChapters.length > 0 && (
+              <button
+                onClick={() => createChapter(undefined, `Chapter ${getNextChapterNumber()}`)}
+                className="w-full flex items-center justify-center gap-1.5 py-2 mt-2 rounded-xl border border-dashed border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Chapter Baru</span>
+              </button>
             )}
           </div>
 
@@ -794,12 +844,12 @@ export const EditorView: React.FC = () => {
 
       {/* MAIN WRITING WORKBENCH */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Editor Top Bar - Centered across all modes */}
+        {/* Editor Top Bar - Flush Left for Chapter Toggle & Stats */}
         {!isZenMode && (
           <div className="border-b border-[var(--app-border)] bg-[var(--app-header-bg)] px-3 sm:px-6 py-2 transition-colors">
-            <div className="w-full max-w-5xl mx-auto flex flex-wrap items-center justify-center sm:justify-between gap-2.5">
-              {/* Left Controls: Sidebar Toggle & Stats */}
-              <div className="flex items-center gap-2.5">
+            <div className="w-full flex items-center justify-between gap-2.5 flex-wrap">
+              {/* Left Controls: Sidebar Toggle & Stats - ALWAYS FLUSH LEFT */}
+              <div className="flex items-center gap-2.5 shrink-0">
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
@@ -807,13 +857,13 @@ export const EditorView: React.FC = () => {
                       ? 'border-[var(--app-border)] bg-[var(--app-accent-bg)] text-[var(--app-accent)] shadow-sm'
                       : 'border-[var(--app-border)] bg-[var(--app-card)] text-[var(--app-text)] hover:border-[var(--app-accent)]'
                   }`}
-                  title={sidebarOpen ? 'Tutup Daftar Bab' : 'Buka Daftar Bab'}
+                  title={sidebarOpen ? 'Tutup Daftar Chapter' : 'Buka Daftar Chapter'}
                 >
                   <Layers className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-                  <span className="font-semibold">{sidebarOpen ? 'Tutup Bab' : 'Daftar Bab'}</span>
+                  <span className="font-semibold">{sidebarOpen ? 'Tutup Chapter' : 'Daftar Chapter'}</span>
                   {activeChapter && (
-                    <span className="font-mono text-[10px] text-[var(--app-text-muted)] border-l border-[var(--app-border)] pl-1.5 max-w-[100px] truncate hidden sm:inline">
-                      Bab {activeChapter.chapterNumber}
+                    <span className="font-mono text-[10px] text-[var(--app-text-muted)] border-l border-[var(--app-border)] pl-1.5 max-w-[120px] truncate hidden sm:inline">
+                      {activeChapter.title || `Chapter ${activeChapter.chapterNumber}`}
                     </span>
                   )}
                 </button>
@@ -826,7 +876,7 @@ export const EditorView: React.FC = () => {
               </div>
 
               {/* Right Controls: Mode Baca, New Story, Formatting Suite, Time Machine, Zen Mode */}
-              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+              <div className="flex items-center gap-1.5 flex-wrap justify-end">
                 {/* Mode Baca (Reader Mode) Button */}
                 <button
                   onClick={() => handleToggleReaderMode()}
@@ -1056,6 +1106,19 @@ export const EditorView: React.FC = () => {
                 </button>
               </div>
 
+              {/* Kutipan / Quote Tokoh (inotes style blockquote) */}
+              <div className="border-r border-[var(--app-border)] pr-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleInsertQuote}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[var(--app-text)] hover:bg-[var(--app-card-sub)] hover:text-[var(--app-accent)] transition-colors"
+                  title="Kutipan / Quote Tokoh (Format Inotes)"
+                >
+                  <Quote className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                  <span className="text-[11px] font-medium hidden sm:inline">Kutipan</span>
+                </button>
+              </div>
+
               {/* Highlight Menu (10 Colors) Trigger */}
               <div className="border-r border-[var(--app-border)] pr-2 shrink-0">
                 <button
@@ -1256,19 +1319,18 @@ export const EditorView: React.FC = () => {
             {projectChapters.length === 0 ? (
               <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-card)] my-auto">
                 <BookOpen className="w-10 h-10 text-[var(--app-accent)] mx-auto mb-2 opacity-75" />
-                <h3 className="text-sm font-bold text-[var(--app-text)]">Belum ada bab dalam naskah ini</h3>
+                <h3 className="text-sm font-bold text-[var(--app-text)]">Belum ada chapter dalam naskah ini</h3>
                 <p className="text-xs text-[var(--app-text-muted)] mt-1 mb-4">
-                  Mulai bab pertama sekarang untuk mulai merangkai cerita.
+                  Mulai chapter pertama sekarang untuk mulai merangkai cerita.
                 </p>
                 <button
                   onClick={() => {
-                    const arcId = projectArcs[0]?.id || createArc({ title: 'Arc I: Permulaan' }).id;
-                    createChapter(arcId, 'Bab 1: Permulaan');
+                    createChapter(undefined, 'Chapter 1: Permulaan');
                   }}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--app-accent)] text-xs font-semibold text-black hover:opacity-90 transition-all shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>Buat Bab Pertama</span>
+                  <span>Buat Chapter Pertama</span>
                 </button>
               </div>
             ) : (
@@ -1279,14 +1341,14 @@ export const EditorView: React.FC = () => {
                     <div className="pb-4 border-b border-[var(--app-border)]">
                       <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--app-accent)] block mb-1">
                         {activeProject?.category === 'series'
-                          ? `${activeProject.seriesTitle || 'Seri'} · Bab ${activeChapter?.chapterNumber || 1}`
-                          : `Bab ${activeChapter?.chapterNumber || 1}`}
+                          ? `${activeProject.seriesTitle || 'Seri'} · ${activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}`
+                          : (activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`)}
                       </span>
                       <h1
                         className={`text-2xl sm:text-3xl font-bold text-[var(--app-text)] leading-tight ${getFontClass()}`}
                         style={{ fontFamily: getFontFamilyInline() }}
                       >
-                        {title || `Bab ${activeChapter?.chapterNumber || 1}`}
+                        {title || activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}
                       </h1>
                       <p className="text-xs text-[var(--app-text-muted)] mt-1.5">
                         {activeProject?.title} · Oleh <strong className="text-[var(--app-text)]">{activeProject?.authorName || 'Penulis'}</strong>
@@ -1294,9 +1356,7 @@ export const EditorView: React.FC = () => {
                     </div>
 
                     <div
-                      className={`editor-rich-content flex-1 text-[var(--app-text)] leading-relaxed select-text transition-colors ${getFontClass()} ${
-                        typesetting.dropCap ? 'drop-cap' : ''
-                      }`}
+                      className={`editor-rich-content flex-1 text-[var(--app-text)] leading-relaxed select-text transition-colors ${getFontClass()}`}
                       style={{
                         fontFamily: getFontFamilyInline(),
                         fontSize: `${typesetting.fontSize}px`,
@@ -1307,7 +1367,7 @@ export const EditorView: React.FC = () => {
                         __html:
                           (editorRef.current?.innerHTML && editorRef.current.innerHTML !== '<p><br></p>')
                             ? editorRef.current.innerHTML
-                            : (activeChapter?.content || '<p class="italic text-[var(--app-text-muted)]">Bab ini belum memiliki isi draf.</p>'),
+                            : (activeChapter?.content || '<p class="italic text-[var(--app-text-muted)]">Chapter ini belum memiliki isi draf.</p>'),
                       }}
                     />
                   </div>
@@ -1321,7 +1381,7 @@ export const EditorView: React.FC = () => {
                       type="text"
                       value={title}
                       onChange={handleTitleChange}
-                      placeholder="Judul Bab..."
+                      placeholder="Judul Chapter (misal: Chapter 1 atau Prolog)..."
                       style={{ fontFamily: getFontFamilyInline() }}
                       className={`w-full bg-transparent text-xl md:text-2xl font-bold text-[var(--app-text)] focus:outline-none placeholder-[var(--app-text-muted)] ${getFontClass()}`}
                     />
@@ -1333,9 +1393,7 @@ export const EditorView: React.FC = () => {
                     contentEditable={!isReaderMode}
                     onInput={handleEditorInput}
                     data-placeholder="Mulai menulis draf ceritamu di sini..."
-                    className={`editor-rich-content flex-1 min-h-[500px] bg-transparent text-[var(--app-text)] focus:outline-none leading-relaxed transition-colors ${getFontClass()} ${
-                      typesetting.dropCap ? 'drop-cap' : ''
-                    }`}
+                    className={`editor-rich-content flex-1 min-h-[500px] bg-transparent text-[var(--app-text)] focus:outline-none leading-relaxed transition-colors ${getFontClass()}`}
                     style={{
                       fontFamily: getFontFamilyInline(),
                       fontSize: `${typesetting.fontSize}px`,

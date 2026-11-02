@@ -11,7 +11,7 @@ export const PWAInstallButton: React.FC = () => {
     return (
       <div
         className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[10px] text-[var(--app-accent)] font-medium"
-        title="Shandwright PWA terpasang di perangkat ini"
+        title="jaeyyyiii PWA terpasang di perangkat ini"
       >
         <Check className="w-3 h-3 stroke-[2.5]" />
         <span>PWA Aktif</span>
@@ -35,7 +35,7 @@ export const PWAInstallButton: React.FC = () => {
       <button
         onClick={handleClick}
         className="flex items-center gap-1.5 rounded-xl bg-[var(--app-accent)] px-3 py-1.5 text-xs font-semibold text-black hover:opacity-90 active:scale-95 transition-all shadow-sm whitespace-nowrap shrink-0"
-        title="Unduh & Pasang Shandwright ke Layar Utama (PWA Mobile Offline)"
+        title="Unduh & Pasang jaeyyyiii ke Layar Utama (PWA Mobile Offline)"
       >
         <Download className="w-3.5 h-3.5 stroke-[2.5]" />
         <span>Unduh PWA</span>
@@ -47,7 +47,7 @@ export const PWAInstallButton: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)]">
               <h3 className="text-sm font-bold text-[var(--app-text)] flex items-center gap-2">
                 <Smartphone className="w-4 h-4 text-[var(--app-accent)]" />
-                Pasang Shandwright di HP / PC
+                Pasang jaeyyyiii di HP / PC
               </h3>
               <button
                 onClick={() => setShowGuide(false)}
