@@ -23,6 +23,7 @@ export interface Project {
   seriesOrder?: number;
   genre: DarkGenre;
   subGenre?: string;
+  tags?: string[];
   status: ProjectStatus;
   coverUrl?: string;
   targetDailyWords?: number;

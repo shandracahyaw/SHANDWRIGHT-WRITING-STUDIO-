@@ -417,6 +417,8 @@ export const NovelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       seriesTitle: data.seriesTitle || '',
       seriesOrder: data.seriesOrder || 1,
       genre: data.genre || 'General Fiction',
+      subGenre: data.subGenre || '',
+      tags: data.tags || [],
       status: data.status || 'Idea',
       coverUrl: data.coverUrl || '/src/assets/images/sample_book_cover_1793354596229.jpg',
       targetDailyWords: data.targetDailyWords || 1000,

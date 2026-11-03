@@ -12,6 +12,12 @@ import {
   ArrowRight,
   X,
   FilePlus,
+  Tag,
+  BookOpen,
+  FileText,
+  CheckCircle2,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 
 export const ProjectsView: React.FC = () => {
@@ -24,6 +30,8 @@ export const ProjectsView: React.FC = () => {
     deleteProject,
     setActiveTab,
     createChapter,
+    chapters,
+    setActiveChapterId,
     arcs,
     showToast,
     requestConfirm,
@@ -32,6 +40,13 @@ export const ProjectsView: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<'all' | 'standalone' | 'series'>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // Story detail card modal state
+  const [selectedProjectForDetail, setSelectedProjectForDetail] = useState<Project | null>(null);
+  const [detailSubTab, setDetailSubTab] = useState<'synopsis' | 'chapters'>('synopsis');
+
+  // Custom Tag input state for create/edit modal
+  const [tagInput, setTagInput] = useState('');
 
   // Form states without forced word target
   const [formData, setFormData] = useState({
@@ -45,6 +60,7 @@ export const ProjectsView: React.FC = () => {
     seriesOrder: 1,
     genre: 'General Fiction' as DarkGenre,
     subGenre: '',
+    tags: [] as string[],
     status: 'Idea' as ProjectStatus,
     coverUrl: '',
   });
@@ -54,6 +70,7 @@ export const ProjectsView: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingProject(null);
+    setTagInput('');
     setFormData({
       title: '',
       subtitle: '',
@@ -65,6 +82,7 @@ export const ProjectsView: React.FC = () => {
       seriesOrder: 1,
       genre: 'General Fiction',
       subGenre: '',
+      tags: [],
       status: 'Idea',
       coverUrl: '/src/assets/images/sample_book_cover_1793354596229.jpg',
     });
@@ -74,6 +92,7 @@ export const ProjectsView: React.FC = () => {
   const openEditModal = (proj: Project, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingProject(proj);
+    setTagInput('');
     setFormData({
       title: proj.title,
       subtitle: proj.subtitle || '',
@@ -85,10 +104,29 @@ export const ProjectsView: React.FC = () => {
       seriesOrder: proj.seriesOrder || 1,
       genre: proj.genre,
       subGenre: proj.subGenre || '',
+      tags: proj.tags || [],
       status: proj.status,
       coverUrl: proj.coverUrl || '',
     });
     setShowModal(true);
+  };
+
+  const handleAddFormTag = () => {
+    const clean = tagInput.trim().replace(/^#/, '');
+    if (clean && !formData.tags.includes(clean)) {
+      setFormData((prev) => ({
+        ...prev,
+        tags: [...prev.tags, clean],
+      }));
+    }
+    setTagInput('');
+  };
+
+  const handleRemoveFormTag = (tagToRemove: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tagToRemove),
+    }));
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -100,6 +138,12 @@ export const ProjectsView: React.FC = () => {
 
     if (editingProject) {
       updateProject(editingProject.id, formData);
+      if (selectedProjectForDetail?.id === editingProject.id) {
+        setSelectedProjectForDetail({
+          ...selectedProjectForDetail,
+          ...formData,
+        });
+      }
     } else {
       createProject(formData);
     }
@@ -315,7 +359,15 @@ export const ProjectsView: React.FC = () => {
                         </span>
                       </div>
 
-                      <h3 className="text-sm font-semibold text-[var(--app-text)] group-hover:text-[var(--app-accent)] transition-colors truncate">
+                      <h3
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedProjectForDetail(project);
+                          setDetailSubTab('synopsis');
+                        }}
+                        className="text-sm font-semibold text-[var(--app-text)] hover:text-[var(--app-accent)] transition-colors truncate cursor-pointer underline decoration-dotted underline-offset-2"
+                        title="Klik judul untuk membuka Card Detail Cerita"
+                      >
                         {project.title}
                       </h3>
                       {project.subtitle && (
@@ -324,11 +376,30 @@ export const ProjectsView: React.FC = () => {
                         </p>
                       )}
 
-                      <div className="mt-1 text-xs text-[var(--app-text-muted)]">
+                      <div className="mt-1 text-xs text-[var(--app-text-muted)] flex flex-wrap items-center gap-1.5">
                         <span className="text-[var(--app-accent)] font-mono text-[11px] font-medium">
                           {project.genre}
                         </span>
+                        {project.subGenre && (
+                          <span className="text-[10px] text-[var(--app-text-muted)] italic">
+                            · {project.subGenre}
+                          </span>
+                        )}
                       </div>
+
+                      {/* Custom Story Tags */}
+                      {project.tags && project.tags.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                          {project.tags.map((t, idx) => (
+                            <span
+                              key={idx}
+                              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                            >
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -340,18 +411,33 @@ export const ProjectsView: React.FC = () => {
                 </div>
 
                 {/* Bottom Actions */}
-                <div className="mt-4 pt-2.5 border-t border-[var(--app-border)] flex items-center justify-between">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveProjectId(project.id);
-                      setActiveTab('editor');
-                    }}
-                    className="flex items-center gap-1 text-xs text-[var(--app-accent)] hover:opacity-80 font-medium"
-                  >
-                    <span>Buka Naskah</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                <div className="mt-4 pt-2.5 border-t border-[var(--app-border)] flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveProjectId(project.id);
+                        setActiveTab('editor');
+                      }}
+                      className="flex items-center gap-1 text-xs text-[var(--app-accent)] hover:opacity-80 font-medium"
+                    >
+                      <span>Buka Naskah</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedProjectForDetail(project);
+                        setDetailSubTab('synopsis');
+                      }}
+                      className="flex items-center gap-1 text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] transition-colors"
+                      title="Lihat card rincian cerita, sinopsis & daftar chapter"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Detail Cerita</span>
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-1">
                     <button
@@ -567,6 +653,62 @@ export const ProjectsView: React.FC = () => {
                   />
                 </div>
 
+                {/* Custom Story Tags */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                    Tag Cerita (Ketik sendiri &amp; tekan Enter atau tombol Tambah)
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <div className="relative flex-1">
+                      <Tag className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--app-text-muted)]" />
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddFormTag();
+                          }
+                        }}
+                        placeholder="Contoh: Grimdark, Plot Twist, Time Travel..."
+                        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] pl-9 pr-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddFormTag}
+                      className="px-3 py-2 rounded-xl bg-[var(--app-card-sub)] border border-[var(--app-border)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors shrink-0"
+                    >
+                      + Tambah
+                    </button>
+                  </div>
+                  {formData.tags.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {formData.tags.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                        >
+                          #{t}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFormTag(t)}
+                            className="hover:text-red-400 p-0.5 rounded transition-colors"
+                            title="Hapus tag"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[var(--app-text-muted)] italic">
+                      Belum ada tag cerita. Ketik tag untuk memudahkan pengelompokan naskah.
+                    </p>
+                  )}
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
                     Sinopsis / Premis Cerita
@@ -597,6 +739,287 @@ export const ProjectsView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* STORY DETAIL CARD MODAL (Cover on left, Title/Tags/Genre/Progress on right, 2 subtabs below: Synopsis vs Chapters) */}
+      {selectedProjectForDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-5 md:p-6 shadow-2xl text-[var(--app-text)] my-6 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] shrink-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[var(--app-accent)]" />
+                <h2 className="text-sm font-bold text-[var(--app-text)]">
+                  Detail Cerita &amp; Rincian Naskah
+                </h2>
+              </div>
+              <button
+                onClick={() => setSelectedProjectForDetail(null)}
+                className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+              {/* Top Section: Cover on Left, Beside Cover on Right: Title, Tags, Genre, Progress */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start bg-[var(--app-card-sub)] p-4 rounded-xl border border-[var(--app-border)]">
+                {/* Book Cover */}
+                <div className="w-28 sm:w-32 h-40 sm:h-44 rounded-xl overflow-hidden bg-[var(--app-card)] border border-[var(--app-border)] shrink-0 shadow-md relative">
+                  {selectedProjectForDetail.coverUrl ? (
+                    <img
+                      src={selectedProjectForDetail.coverUrl}
+                      alt={selectedProjectForDetail.title}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[var(--app-text-muted)]">
+                      <BookMarked className="w-8 h-8 text-[var(--app-accent)] opacity-60" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Samping Cover: Judul, Subjudul, Genre, Tag, Tahun */}
+                <div className="flex-1 min-w-0 space-y-2">
+                  {/* 1. Judul */}
+                  <h1 className="text-lg md:text-xl font-bold text-[var(--app-text)] leading-snug">
+                    {selectedProjectForDetail.title}
+                  </h1>
+
+                  {/* 2. Subjudul (ukuran lebih kecil dari judul utama) */}
+                  {selectedProjectForDetail.subtitle && (
+                    <p className="text-xs sm:text-sm text-[var(--app-text-muted)] italic leading-tight">
+                      {selectedProjectForDetail.subtitle}
+                    </p>
+                  )}
+
+                  {/* 3. Genre */}
+                  <div className="text-xs font-semibold text-[var(--app-accent)] tracking-wide">
+                    {selectedProjectForDetail.genre}
+                    {selectedProjectForDetail.subGenre && (
+                      <span className="text-[var(--app-text-muted)] font-normal"> · {selectedProjectForDetail.subGenre}</span>
+                    )}
+                  </div>
+
+                  {/* 4. Tag */}
+                  {selectedProjectForDetail.tags && selectedProjectForDetail.tags.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 py-0.5">
+                      {selectedProjectForDetail.tags.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {/* 5. Tahun */}
+                  <div className="text-xs font-mono text-[var(--app-text-muted)] pt-0.5">
+                    ©{selectedProjectForDetail.copyrightYear || '2026'}
+                  </div>
+
+                  {/* Progress Cerita (Completed or Ongoing) */}
+                  <div className="pt-1.5 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-[var(--app-text-muted)] font-medium">Progress:</span>
+                    <div className="inline-flex items-center gap-1 bg-[var(--app-card)] border border-[var(--app-border)] rounded-xl p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateProject(selectedProjectForDetail.id, { status: 'On Progress' });
+                          setSelectedProjectForDetail({ ...selectedProjectForDetail, status: 'On Progress' });
+                          showToast('Progress diubah ke: Ongoing (Sedang Ditulis)');
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          selectedProjectForDetail.status === 'On Progress' || selectedProjectForDetail.status === 'Idea'
+                            ? 'bg-[var(--app-accent)] text-black shadow-xs'
+                            : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
+                        }`}
+                      >
+                        <Clock className="w-3 h-3" />
+                        <span>Ongoing</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateProject(selectedProjectForDetail.id, { status: 'Completed' });
+                          setSelectedProjectForDetail({ ...selectedProjectForDetail, status: 'Completed' });
+                          showToast('Progress diubah ke: Completed (Tamat)');
+                        }}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                          selectedProjectForDetail.status === 'Completed'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Completed</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Section: 2 Sub-Tabs (Sinopsis vs Daftar Chapter) */}
+              <div>
+                <div className="flex items-center gap-2 border-b border-[var(--app-border)] pb-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setDetailSubTab('synopsis')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      detailSubTab === 'synopsis'
+                        ? 'bg-[var(--app-accent)] text-black shadow-xs'
+                        : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)] bg-[var(--app-card-sub)] border border-[var(--app-border)]'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Deskripsi</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailSubTab('chapters')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      detailSubTab === 'chapters'
+                        ? 'bg-[var(--app-accent)] text-black shadow-xs'
+                        : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)] bg-[var(--app-card-sub)] border border-[var(--app-border)]'
+                    }`}
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>
+                      Chapters (
+                      {chapters.filter((c) => c.projectId === selectedProjectForDetail.id).length}
+                      )
+                    </span>
+                  </button>
+                </div>
+
+                {/* SubTab 1: Sinopsis atau Deskripsi Cerita */}
+                {detailSubTab === 'synopsis' && (
+                  <div className="bg-[var(--app-card-sub)] p-4 rounded-xl border border-[var(--app-border)] space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--app-accent)]">
+                      Sinopsis &amp; Premis Dunia Cerita
+                    </h3>
+                    {selectedProjectForDetail.synopsis ? (
+                      <p className="text-xs text-[var(--app-text)] leading-relaxed whitespace-pre-line font-serif">
+                        {selectedProjectForDetail.synopsis}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[var(--app-text-muted)] italic">
+                        Belum ada sinopsis untuk cerita ini. Anda dapat menyuntingnya melalui tombol Ubah Proyek atau di tab Editor.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* SubTab 2: Daftar Chapter Cerita */}
+                {detailSubTab === 'chapters' && (
+                  <div className="space-y-2">
+                    {(() => {
+                      const projectChaps = chapters
+                        .filter((c) => c.projectId === selectedProjectForDetail.id)
+                        .sort((a, b) => a.chapterNumber - b.chapterNumber);
+
+                      if (projectChaps.length === 0) {
+                        return (
+                          <div className="text-center py-8 px-4 rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-card-sub)]">
+                            <BookOpen className="w-8 h-8 text-[var(--app-accent)] mx-auto mb-2 opacity-70" />
+                            <p className="text-xs text-[var(--app-text-muted)]">
+                              Belum ada chapter yang ditulis untuk cerita ini.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveProjectId(selectedProjectForDetail.id);
+                                createChapter(undefined, 'Chapter 1: Permulaan');
+                                setActiveTab('editor');
+                                setSelectedProjectForDetail(null);
+                              }}
+                              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--app-accent)] text-xs font-semibold text-black hover:opacity-90 transition-all"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Mulai Tulis Chapter 1</span>
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                          {projectChaps.map((chap, idx) => {
+                            const rawWordCount = chap.content
+                              ? chap.content.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length
+                              : 0;
+
+                            return (
+                              <div
+                                key={chap.id}
+                                className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--app-card-sub)] border border-[var(--app-border)] hover:border-[var(--app-accent)] transition-all group"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="w-6 h-6 rounded-lg bg-[var(--app-card)] border border-[var(--app-border)] flex items-center justify-center text-[10px] font-mono text-[var(--app-accent)] font-bold shrink-0">
+                                    {chap.chapterNumber || idx + 1}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <h4 className="text-xs font-semibold text-[var(--app-text)] group-hover:text-[var(--app-accent)] transition-colors truncate">
+                                      {chap.title}
+                                    </h4>
+                                    <p className="text-[10px] text-[var(--app-text-muted)] font-mono">
+                                      {rawWordCount} kata · {chap.status || 'Draft'}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveProjectId(selectedProjectForDetail.id);
+                                    setActiveChapterId(chap.id);
+                                    setActiveTab('editor');
+                                    setSelectedProjectForDetail(null);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-xs text-[var(--app-text)] hover:border-[var(--app-accent)] hover:text-[var(--app-accent)] transition-all shrink-0 font-medium"
+                                >
+                                  <span>Buka &amp; Tulis</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--app-border)] shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedProjectForDetail(null)}
+                className="px-3.5 py-1.5 rounded-xl border border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveProjectId(selectedProjectForDetail.id);
+                  setActiveTab('editor');
+                  setSelectedProjectForDetail(null);
+                }}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-[var(--app-accent)] text-xs font-semibold text-black hover:opacity-90 transition-all shadow-sm"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Buka Cerita di Editor</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

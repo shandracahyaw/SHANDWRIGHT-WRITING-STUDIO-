@@ -37,6 +37,8 @@ import {
   Eye,
   Sparkles,
   Quote,
+  Image as ImageIcon,
+  Tag,
 } from 'lucide-react';
 
 const TEXT_COLORS = [
@@ -117,9 +119,12 @@ export const EditorView: React.FC = () => {
   const [coverCopyright, setCoverCopyright] = useState('');
   const [coverGenre, setCoverGenre] = useState<DarkGenre>('General Fiction');
   const [coverSubGenre, setCoverSubGenre] = useState('');
+  const [coverTags, setCoverTags] = useState<string[]>([]);
+  const [coverTagInput, setCoverTagInput] = useState('');
   const [coverSynopsis, setCoverSynopsis] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const coverImageInputRef = useRef<HTMLInputElement>(null);
+  const editorImageInputRef = useRef<HTMLInputElement>(null);
 
   // New Story Quick Modal directly in Editor tab
   const [showNewStoryModal, setShowNewStoryModal] = useState(false);
@@ -127,10 +132,12 @@ export const EditorView: React.FC = () => {
     title: '',
     genre: 'General Fiction' as DarkGenre,
     subGenre: '',
+    tags: [] as string[],
     synopsis: '',
     authorName: 'Shandra Cahya',
     copyrightYear: new Date().getFullYear().toString(),
   });
+  const [newStoryTagInput, setNewStoryTagInput] = useState('');
 
   const [snapshotNote, setSnapshotNote] = useState('');
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -358,20 +365,28 @@ export const EditorView: React.FC = () => {
     }
   };
 
-  // Continuous chapters list: Prolog first, followed by Chapter 1, 2, 3...
+  // Continuous chapters list: Prolog first, followed by Chapter 1, 2, 3..., then Epilog last
   const sortedChapters = React.useMemo(() => {
     return [...projectChapters].sort((a, b) => {
       const isPrologA = a.title.toLowerCase().includes('prolog');
       const isPrologB = b.title.toLowerCase().includes('prolog');
       if (isPrologA && !isPrologB) return -1;
       if (!isPrologA && isPrologB) return 1;
+
+      const isEpilogA = a.title.toLowerCase().includes('epilog');
+      const isEpilogB = b.title.toLowerCase().includes('epilog');
+      if (isEpilogA && !isEpilogB) return 1;
+      if (!isEpilogA && isEpilogB) return -1;
+
       return (a.chapterNumber || 0) - (b.chapterNumber || 0);
     });
   }, [projectChapters]);
 
   const getNextChapterNumber = () => {
     const numbered = projectChapters.filter(
-      (c) => !c.title.toLowerCase().includes('prolog')
+      (c) =>
+        !c.title.toLowerCase().includes('prolog') &&
+        !c.title.toLowerCase().includes('epilog')
     );
     return numbered.length + 1;
   };
@@ -383,6 +398,15 @@ export const EditorView: React.FC = () => {
       return;
     }
     createChapter(undefined, 'Prolog', '<p>Tulis prolog cerita di sini...</p>');
+  };
+
+  const handleCreateEpilog = () => {
+    const hasEpilog = projectChapters.some((c) => c.title.toLowerCase().includes('epilog'));
+    if (hasEpilog) {
+      showToast('Epilog sudah ada dalam naskah', 'info');
+      return;
+    }
+    createChapter(undefined, 'Epilog', '<p>Tulis epilog penutup cerita di sini...</p>');
   };
 
   // Highlight Text (10 Colors)
@@ -464,6 +488,8 @@ export const EditorView: React.FC = () => {
     setCoverCopyright(activeProject.copyrightYear || new Date().getFullYear().toString());
     setCoverGenre(activeProject.genre || 'General Fiction');
     setCoverSubGenre(activeProject.subGenre || '');
+    setCoverTags(activeProject.tags || []);
+    setCoverTagInput('');
     setCoverSynopsis(activeProject.synopsis || '');
     setCoverUrl(activeProject.coverUrl || '');
     setShowCoverModal(true);
@@ -477,11 +503,42 @@ export const EditorView: React.FC = () => {
       copyrightYear: coverCopyright,
       genre: coverGenre,
       subGenre: coverSubGenre,
+      tags: coverTags,
       synopsis: coverSynopsis,
       coverUrl: coverUrl,
     });
     setShowCoverModal(false);
-    showToast('Rincian sampul, genre & buku berhasil diperbarui!');
+    showToast('Rincian sampul, tag, genre & buku berhasil diperbarui!');
+  };
+
+  const handleAddCoverTag = () => {
+    const clean = coverTagInput.trim().replace(/^#/, '');
+    if (clean && !coverTags.includes(clean)) {
+      setCoverTags([...coverTags, clean]);
+    }
+    setCoverTagInput('');
+  };
+
+  const handleRemoveCoverTag = (tagToRemove: string) => {
+    setCoverTags(coverTags.filter((t) => t !== tagToRemove));
+  };
+
+  const handleAddNewStoryTag = () => {
+    const clean = newStoryTagInput.trim().replace(/^#/, '');
+    if (clean && !newStoryForm.tags.includes(clean)) {
+      setNewStoryForm((prev) => ({
+        ...prev,
+        tags: [...prev.tags, clean],
+      }));
+    }
+    setNewStoryTagInput('');
+  };
+
+  const handleRemoveNewStoryTag = (tagToRemove: string) => {
+    setNewStoryForm((prev) => ({
+      ...prev,
+      tags: prev.tags.filter((t) => t !== tagToRemove),
+    }));
   };
 
   const handleCreateNewStory = (e: React.FormEvent) => {
@@ -494,6 +551,7 @@ export const EditorView: React.FC = () => {
       title: newStoryForm.title.trim(),
       genre: newStoryForm.genre,
       subGenre: newStoryForm.subGenre.trim() || undefined,
+      tags: newStoryForm.tags,
       synopsis: newStoryForm.synopsis.trim() || 'Dunia naskah baru.',
       authorName: newStoryForm.authorName || 'Shandra Cahya',
       copyrightYear: newStoryForm.copyrightYear || new Date().getFullYear().toString(),
@@ -509,11 +567,47 @@ export const EditorView: React.FC = () => {
       title: '',
       genre: 'General Fiction',
       subGenre: '',
+      tags: [],
       synopsis: '',
       authorName: 'Shandra Cahya',
       copyrightYear: new Date().getFullYear().toString(),
     });
+    setNewStoryTagInput('');
     showToast(`Cerita "${created.title}" berhasil dibuat! Siap menulis.`);
+  };
+
+  // Offline automatic photo upload directly into the editor
+  const handleEditorImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('Pilih file gambar (JPG, PNG, WebP)', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Url = event.target?.result as string;
+      if (!base64Url) return;
+
+      const cleanName = file.name.replace(/\.[^/.]+$/, '');
+      const imgHtml = `<figure class="my-4 text-center select-none" contenteditable="false"><img src="${base64Url}" alt="${cleanName}" class="max-w-full max-h-[480px] rounded-2xl mx-auto shadow-md border border-[var(--app-border)] object-contain" /><figcaption class="text-[11px] text-[var(--app-text-muted)] italic mt-1.5 font-mono">Ilustrasi: ${cleanName}</figcaption></figure><p><br></p>`;
+
+      if (editorRef.current) {
+        editorRef.current.focus();
+        document.execCommand('insertHTML', false, imgHtml);
+        handleEditorInput();
+      }
+      showToast(`Foto "${file.name}" berhasil diunggah secara offline!`);
+    };
+
+    reader.onerror = () => {
+      showToast('Gagal memproses file foto', 'error');
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -725,6 +819,13 @@ export const EditorView: React.FC = () => {
                 + Prolog
               </button>
               <button
+                onClick={handleCreateEpilog}
+                className="px-2 py-1 text-[10px] font-semibold text-[var(--app-accent)] bg-[var(--app-accent-bg)] border border-[var(--app-border)] hover:opacity-90 rounded-lg transition-colors"
+                title="Tambah Halaman Epilog"
+              >
+                + Epilog
+              </button>
+              <button
                 onClick={() => createChapter(undefined, `Chapter ${getNextChapterNumber()}`)}
                 className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-accent)] rounded-lg transition-colors"
                 title="Tambah Chapter Baru"
@@ -753,18 +854,28 @@ export const EditorView: React.FC = () => {
                   >
                     + Buat Chapter 1
                   </button>
-                  <button
-                    onClick={handleCreateProlog}
-                    className="text-[var(--app-text-muted)] hover:text-[var(--app-accent)] text-[11px]"
-                  >
-                    + Tambah Prolog
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleCreateProlog}
+                      className="text-[var(--app-text-muted)] hover:text-[var(--app-accent)] text-[11px]"
+                    >
+                      + Prolog
+                    </button>
+                    <span>·</span>
+                    <button
+                      onClick={handleCreateEpilog}
+                      className="text-[var(--app-text-muted)] hover:text-[var(--app-accent)] text-[11px]"
+                    >
+                      + Epilog
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
               sortedChapters.map((chap) => {
                 const isSelected = chap.id === activeChapterId;
                 const isProlog = chap.title.toLowerCase().includes('prolog');
+                const isEpilog = chap.title.toLowerCase().includes('epilog');
                 return (
                   <div
                     key={chap.id}
@@ -785,6 +896,11 @@ export const EditorView: React.FC = () => {
                         {isProlog && (
                           <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[var(--app-accent)] text-black font-semibold">
                             Prolog
+                          </span>
+                        )}
+                        {isEpilog && (
+                          <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[var(--app-accent)] text-black font-semibold">
+                            Epilog
                           </span>
                         )}
                         <p className="truncate font-medium">
@@ -816,15 +932,24 @@ export const EditorView: React.FC = () => {
               })
             )}
 
-            {/* Quick Add Chapter at the bottom */}
+            {/* Quick Add Chapter & Epilog at the bottom */}
             {sortedChapters.length > 0 && (
-              <button
-                onClick={() => createChapter(undefined, `Chapter ${getNextChapterNumber()}`)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 mt-2 rounded-xl border border-dashed border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Chapter Baru</span>
-              </button>
+              <div className="flex items-center gap-1.5 mt-2">
+                <button
+                  onClick={() => createChapter(undefined, `Chapter ${getNextChapterNumber()}`)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Chapter Baru</span>
+                </button>
+                <button
+                  onClick={handleCreateEpilog}
+                  className="px-3 py-2 rounded-xl border border-dashed border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-colors shrink-0"
+                  title="Tambah Epilog"
+                >
+                  <span>+ Epilog</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -844,12 +969,26 @@ export const EditorView: React.FC = () => {
 
       {/* MAIN WRITING WORKBENCH */}
       <main className="flex-1 flex flex-col min-w-0">
-        {/* Editor Top Bar - Flush Left for Chapter Toggle & Stats */}
+        {/* Editor Top Bar - Left Stack & Right Stack */}
         {!isZenMode && (
-          <div className="border-b border-[var(--app-border)] bg-[var(--app-header-bg)] px-3 sm:px-6 py-2 transition-colors">
-            <div className="w-full flex items-center justify-between gap-2.5 flex-wrap">
-              {/* Left Controls: Sidebar Toggle & Stats - ALWAYS FLUSH LEFT */}
-              <div className="flex items-center gap-2.5 shrink-0">
+          <div className="border-b border-[var(--app-border)] bg-[var(--app-header-bg)] px-3 sm:px-6 py-2.5 transition-colors">
+            <div className="w-full flex items-start justify-between gap-3">
+              {/* Left Stack (Rata Kiri):
+                  1. Fitur Tambah Cerita (tepat diatas toggle daftar chapter)
+                  2. Toggle Daftar Chapter
+                  3. Mode Baca (tepat dibawah daftar chapter) */}
+              <div className="flex flex-col items-start gap-1.5 shrink-0">
+                {/* 1. Fitur Tambah Cerita (tepat diatas toggle daftar chapter) */}
+                <button
+                  onClick={() => setShowNewStoryModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs font-semibold text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
+                  title="Tulis Cerita Baru (Pilih Genre & Sub-Genre)"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Tambah Cerita</span>
+                </button>
+
+                {/* 2. Toggle Daftar Chapter */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
@@ -868,16 +1007,7 @@ export const EditorView: React.FC = () => {
                   )}
                 </button>
 
-                <div className="flex items-center gap-2 text-xs text-[var(--app-text-muted)] font-mono">
-                  <span>{wordCount} kata</span>
-                  <span>·</span>
-                  <span>{charCount} kar</span>
-                </div>
-              </div>
-
-              {/* Right Controls: Mode Baca, New Story, Formatting Suite, Time Machine, Zen Mode */}
-              <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                {/* Mode Baca (Reader Mode) Button */}
+                {/* 3. Mode Baca (rata kiri tepat dibawah daftar chapter) */}
                 <button
                   onClick={() => handleToggleReaderMode()}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
@@ -890,39 +1020,35 @@ export const EditorView: React.FC = () => {
                   <Eye className="w-3.5 h-3.5" />
                   <span>{isReaderMode ? 'Mode Tulis' : 'Mode Baca'}</span>
                 </button>
+              </div>
 
-                {/* Quick New Story Button */}
-                <button
-                  onClick={() => setShowNewStoryModal(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs font-medium text-[var(--app-accent)] hover:border-[var(--app-accent)] transition-colors"
-                  title="Tulis Cerita Baru (Pilih Genre & Sub-Genre)"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Cerita Baru</span>
-                </button>
-
-                {/* Typesetting Drawer Trigger */}
+              {/* Right Stack (Rata Kanan):
+                  1. Typesetting
+                  2. Riwayat (dibawah typesetting)
+                  3. Focus Mode (dibawah riwayat) */}
+              <div className="flex flex-col items-end gap-1.5 shrink-0 ml-auto">
+                {/* 1. Typesetting */}
                 <button
                   onClick={() => setShowTypesetPanel(!showTypesetPanel)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
                     showTypesetPanel
-                      ? 'border-[var(--app-border)] bg-[var(--app-accent-bg)] text-[var(--app-accent)]'
+                      ? 'border-[var(--app-border)] bg-[var(--app-accent-bg)] text-[var(--app-accent)] shadow-xs'
                       : 'border-[var(--app-border)] bg-[var(--app-card)] text-[var(--app-text)] hover:border-[var(--app-accent)]'
                   }`}
-                  title="Format Font & Ukuran"
+                  title="Format Font, Ukuran & Typesetting"
                 >
                   <Sliders className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Font</span>
+                  <span>Typesetting</span>
                 </button>
 
-                {/* Version History (Time Machine) */}
+                {/* 2. Riwayat (dibawah typesetting) */}
                 <button
                   onClick={() => setShowHistoryModal(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
                   title="Riwayat Versi (Time Machine)"
                 >
                   <History className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-                  <span className="hidden md:inline">Riwayat</span>
+                  <span>Riwayat</span>
                   {chapterSnapshots.length > 0 && (
                     <span className="px-1.5 py-0.2 bg-[var(--app-card-sub)] text-[var(--app-accent)] text-[10px] font-mono rounded">
                       {chapterSnapshots.length}
@@ -930,32 +1056,14 @@ export const EditorView: React.FC = () => {
                   )}
                 </button>
 
-                {/* Export Text options */}
-                <div className="hidden sm:flex items-center gap-1">
-                  <button
-                    onClick={() => handleExportText('md')}
-                    className="px-2 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
-                    title="Unduh Bab (.md)"
-                  >
-                    .md
-                  </button>
-                  <button
-                    onClick={() => handleExportText('txt')}
-                    className="px-2 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
-                    title="Unduh Bab (.txt)"
-                  >
-                    .txt
-                  </button>
-                </div>
-
-                {/* Zen Mode Button */}
+                {/* 3. Focus Mode (dibawah riwayat) */}
                 <button
                   onClick={() => setIsZenMode(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[var(--app-accent-bg)] border border-[var(--app-border)] text-[var(--app-accent)] text-xs font-medium hover:opacity-90 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--app-accent-bg)] border border-[var(--app-border)] text-[var(--app-accent)] text-xs font-medium hover:opacity-90 transition-all shadow-2xs"
                   title="Mode Fokus Layar Penuh (Zen Mode)"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Focus</span>
+                  <span>Focus Mode</span>
                 </button>
               </div>
             </div>
@@ -1117,6 +1225,26 @@ export const EditorView: React.FC = () => {
                   <Quote className="w-3.5 h-3.5 text-[var(--app-accent)]" />
                   <span className="text-[11px] font-medium hidden sm:inline">Kutipan</span>
                 </button>
+              </div>
+
+              {/* Sisipkan Foto Ilustrasi Otomatis (Offline) */}
+              <div className="border-r border-[var(--app-border)] pr-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => editorImageInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[var(--app-text)] hover:bg-[var(--app-card-sub)] hover:text-[var(--app-accent)] transition-colors"
+                  title="Sisipkan Foto Ilustrasi (Otomatis & Offline)"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                  <span className="text-[11px] font-medium hidden sm:inline">Foto</span>
+                </button>
+                <input
+                  ref={editorImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleEditorImageUpload}
+                />
               </div>
 
               {/* Highlight Menu (10 Colors) Trigger */}
@@ -1304,7 +1432,27 @@ export const EditorView: React.FC = () => {
                       <span>Oleh: <strong className="text-[var(--app-text)] font-medium">{activeProject.authorName || 'Penulis'}</strong></span>
                       <span>·</span>
                       <span className="font-mono text-[11px]">© {activeProject.copyrightYear || '2026'}</span>
+                      {activeProject.subGenre && (
+                        <>
+                          <span>·</span>
+                          <span className="italic">{activeProject.subGenre}</span>
+                        </>
+                      )}
                     </div>
+
+                    {/* STORY TAGS PREVIEW */}
+                    {activeProject.tags && activeProject.tags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {activeProject.tags.map((t, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                          >
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1406,6 +1554,15 @@ export const EditorView: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Editor Bottom Footer - Word & Char Counter (Rata Kanan, Ukuran 7-8px) */}
+        {!isZenMode && (
+          <footer className="border-t border-[var(--app-border)] bg-[var(--app-card)] px-4 sm:px-6 py-1 flex items-center justify-end shrink-0 z-10 transition-colors">
+            <span className="text-[7.5px] font-mono text-[var(--app-text-muted)] tracking-wider">
+              {wordCount} kata · {charCount} kar
+            </span>
+          </footer>
+        )}
       </main>
 
       {/* COVER PREVIEW & BOOK DETAILS MODAL */}
@@ -1545,6 +1702,62 @@ export const EditorView: React.FC = () => {
                   />
                 </div>
 
+                {/* Custom Tags Section */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                    Tag Cerita (Ketik sendiri &amp; tekan Enter atau tombol Tambah)
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <div className="relative flex-1">
+                      <Tag className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--app-text-muted)]" />
+                      <input
+                        type="text"
+                        value={coverTagInput}
+                        onChange={(e) => setCoverTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCoverTag();
+                          }
+                        }}
+                        placeholder="Ketik tag cerita (contoh: Grimdark, Plot Twist, Time Travel)..."
+                        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] pl-9 pr-3 py-2 text-xs text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddCoverTag}
+                      className="px-3 py-2 rounded-xl bg-[var(--app-card-sub)] border border-[var(--app-border)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors shrink-0"
+                    >
+                      + Tambah
+                    </button>
+                  </div>
+                  {coverTags.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {coverTags.map((t, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                        >
+                          #{t}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCoverTag(t)}
+                            className="hover:text-red-400 p-0.5 rounded transition-colors"
+                            title="Hapus tag"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[var(--app-text-muted)] italic">
+                      Belum ada tag cerita. Ketik kata kunci tag di atas.
+                    </p>
+                  )}
+                </div>
+
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
                     URL Gambar Sampul Buku
@@ -1663,6 +1876,62 @@ export const EditorView: React.FC = () => {
                     className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
                   />
                 </div>
+              </div>
+
+              {/* Custom Tags Section */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                  Tag Cerita (Ketik sendiri &amp; tekan Enter atau tombol Tambah)
+                </label>
+                <div className="flex gap-2 mb-2">
+                  <div className="relative flex-1">
+                    <Tag className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--app-text-muted)]" />
+                    <input
+                      type="text"
+                      value={newStoryTagInput}
+                      onChange={(e) => setNewStoryTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddNewStoryTag();
+                        }
+                      }}
+                      placeholder="Ketik tag cerita (contoh: Dark Fantasy, Anti-hero, Mystery)..."
+                      className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] pl-9 pr-3 py-2 text-xs text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddNewStoryTag}
+                    className="px-3 py-2 rounded-xl bg-[var(--app-card-sub)] border border-[var(--app-border)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors shrink-0"
+                  >
+                    + Tambah
+                  </button>
+                </div>
+                {newStoryForm.tags.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {newStoryForm.tags.map((t, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
+                      >
+                        #{t}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNewStoryTag(t)}
+                          className="hover:text-red-400 p-0.5 rounded transition-colors"
+                          title="Hapus tag"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[var(--app-text-muted)] italic">
+                    Belum ada tag cerita. Ketik kata kunci tag di atas.
+                  </p>
+                )}
               </div>
 
               <div>
