@@ -12,6 +12,7 @@ import { WorldBibleView } from './components/views/WorldBibleView';
 import { BookPreviewView } from './components/views/BookPreviewView';
 import { PublishingView } from './components/views/PublishingView';
 import { ProjectsView } from './components/views/ProjectsView';
+import { ReaderView } from './components/views/ReaderView';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import { ToastContainer } from './components/common/ToastContainer';
 import { ConfirmDialog } from './components/common/ConfirmDialog';
@@ -31,6 +32,7 @@ const MainWorkbench: React.FC = () => {
       <div className="flex-1">
         {activeTab === 'editor' && <EditorView />}
         {activeTab === 'bible' && <WorldBibleView />}
+        {activeTab === 'reader' && <ReaderView />}
         {activeTab === 'preview' && <BookPreviewView />}
         {activeTab === 'publish' && <PublishingView />}
         {activeTab === 'projects' && <ProjectsView />}

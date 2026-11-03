@@ -66,7 +66,27 @@ export const ProjectsView: React.FC = () => {
   });
 
   const docxInputRef = useRef<HTMLInputElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Pilih file gambar yang valid (JPG, PNG, WebP)', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        setFormData((prev) => ({ ...prev, coverUrl: base64 }));
+        showToast('Sampul buku berhasil diunggah (tersimpan offline)!');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const openCreateModal = () => {
     setEditingProject(null);
@@ -336,7 +356,7 @@ export const ProjectsView: React.FC = () => {
                         </div>
                       )}
                       {isActive && (
-                        <div className="absolute top-1 left-1 bg-[var(--app-accent)] text-black text-[8px] font-bold px-1 rounded">
+                        <div className="absolute top-1 left-1 bg-[var(--app-accent)] text-black text-[10px] font-bold px-1.5 rounded">
                           AKTIF
                         </div>
                       )}
@@ -346,7 +366,7 @@ export const ProjectsView: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1">
                         <span
-                          className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                          className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded border ${
                             statusColors[project.status]
                           }`}
                         >
@@ -472,9 +492,9 @@ export const ProjectsView: React.FC = () => {
 
       {/* Modal: Create or Edit Project */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-5 shadow-2xl text-[var(--app-text)] my-6">
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-4 sm:p-5 shadow-2xl text-[var(--app-text)] max-h-[90dvh] flex flex-col my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] shrink-0">
               <h2 className="text-sm font-bold text-[var(--app-text)] flex items-center gap-2">
                 <BookMarked className="w-4 h-4 text-[var(--app-accent)]" />
                 {editingProject ? 'Perbarui Rincian Naskah' : 'Mulai Cerita / Naskah Baru'}
@@ -487,7 +507,61 @@ export const ProjectsView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3.5 mt-4">
+            <form onSubmit={handleSave} className="flex-1 overflow-y-auto pr-1 sm:pr-2 touch-pan-y space-y-3.5 my-2.5 min-h-0">
+              {/* Sampul Buku: Upload Offline & Preview */}
+              <div className="flex flex-col sm:flex-row items-center gap-3.5 p-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)]">
+                <div className="w-20 sm:w-24 h-28 sm:h-32 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] overflow-hidden shrink-0 shadow-sm flex items-center justify-center relative">
+                  {formData.coverUrl ? (
+                    <img
+                      src={formData.coverUrl}
+                      alt="Cover Preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-[var(--app-text-muted)] p-2 text-center">
+                      <BookMarked className="w-6 h-6 text-[var(--app-accent)] opacity-60 mb-1" />
+                      <span className="text-[10px]">Tanpa Sampul</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 text-center sm:text-left space-y-1.5 w-full">
+                  <div>
+                    <div className="text-xs font-semibold text-[var(--app-text)]">Sampul Buku (Offline)</div>
+                    <div className="text-[11px] text-[var(--app-text-muted)] leading-relaxed">
+                      Foto tersimpan otomatis di perangkat tanpa kuota internet.
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => coverFileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--app-card)] border border-[var(--app-border)] hover:border-[var(--app-accent)] text-xs font-semibold text-[var(--app-text)] hover:text-[var(--app-accent)] transition-colors shadow-xs"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+                      {formData.coverUrl ? 'Ganti Sampul' : 'Unggah Sampul'}
+                    </button>
+                    {formData.coverUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData((prev) => ({ ...prev, coverUrl: '' }))}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-medium transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Hapus Sampul
+                      </button>
+                    )}
+                    <input
+                      ref={coverFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCoverUpload}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
@@ -511,33 +585,7 @@ export const ProjectsView: React.FC = () => {
                     type="text"
                     value={formData.subtitle}
                     onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                    placeholder="Contoh: Volume 1"
-                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
-                    Nama Penulis
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.authorName}
-                    onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
-                    placeholder="Contoh: Shandra Cahya"
-                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
-                    Tahun Copyright
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.copyrightYear}
-                    onChange={(e) => setFormData({ ...formData, copyrightYear: e.target.value })}
-                    placeholder="Contoh: 2026"
+                    placeholder="Contoh: Volume 1 / Requiem for Mournhold"
                     className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
                   />
                 </div>
@@ -556,6 +604,19 @@ export const ProjectsView: React.FC = () => {
                     <option value="standalone">Standalone (Buku Tunggal)</option>
                     <option value="series">Series (Cerita Bersambung)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                    Tahun Copyright
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.copyrightYear}
+                    onChange={(e) => setFormData({ ...formData, copyrightYear: e.target.value })}
+                    placeholder="Contoh: 2026"
+                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
+                  />
                 </div>
 
                 <div>
@@ -622,99 +683,12 @@ export const ProjectsView: React.FC = () => {
                   </>
                 )}
 
-                <div>
-                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
-                    Status Pengerjaan
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value as ProjectStatus })
-                    }
-                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
-                  >
-                    <option value="Idea">Idea (Gagasan)</option>
-                    <option value="On Progress">On Progress (Menulis)</option>
-                    <option value="Editing">Editing (Penyuntingan)</option>
-                    <option value="Completed">Completed (Tamat)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
-                    URL Sampul Buku (Opsional)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.coverUrl}
-                    onChange={(e) => setFormData({ ...formData, coverUrl: e.target.value })}
-                    placeholder="/src/assets/images/sample_book_cover_1793354596229.jpg"
-                    className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
-                  />
-                </div>
-
-                {/* Custom Story Tags */}
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
-                    Tag Cerita (Ketik sendiri &amp; tekan Enter atau tombol Tambah)
-                  </label>
-                  <div className="flex gap-2 mb-2">
-                    <div className="relative flex-1">
-                      <Tag className="w-3.5 h-3.5 absolute left-3 top-2.5 text-[var(--app-text-muted)]" />
-                      <input
-                        type="text"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddFormTag();
-                          }
-                        }}
-                        placeholder="Contoh: Grimdark, Plot Twist, Time Travel..."
-                        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] pl-9 pr-3 py-2 text-xs text-[var(--app-text)] focus:border-[var(--app-accent)] focus:outline-none"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddFormTag}
-                      className="px-3 py-2 rounded-xl bg-[var(--app-card-sub)] border border-[var(--app-border)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors shrink-0"
-                    >
-                      + Tambah
-                    </button>
-                  </div>
-                  {formData.tags.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {formData.tags.map((t, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
-                        >
-                          #{t}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFormTag(t)}
-                            className="hover:text-red-400 p-0.5 rounded transition-colors"
-                            title="Hapus tag"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-[var(--app-text-muted)] italic">
-                      Belum ada tag cerita. Ketik tag untuk memudahkan pengelompokan naskah.
-                    </p>
-                  )}
-                </div>
-
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
                     Sinopsis / Premis Cerita
                   </label>
                   <textarea
-                    rows={5}
+                    rows={4}
                     value={formData.synopsis}
                     onChange={(e) => setFormData({ ...formData, synopsis: e.target.value })}
                     placeholder="Gambarkan inti alur cerita..."
@@ -723,7 +697,7 @@ export const ProjectsView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--app-border)]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--app-border)] shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -745,8 +719,8 @@ export const ProjectsView: React.FC = () => {
 
       {/* STORY DETAIL CARD MODAL (Cover on left, Title/Tags/Genre/Progress on right, 2 subtabs below: Synopsis vs Chapters) */}
       {selectedProjectForDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-5 md:p-6 shadow-2xl text-[var(--app-text)] my-6 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-4 sm:p-6 shadow-2xl text-[var(--app-text)] my-auto max-h-[90dvh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] shrink-0">
               <div className="flex items-center gap-2">
@@ -764,11 +738,11 @@ export const ProjectsView: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+            <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1 sm:pr-2 touch-pan-y min-h-0">
               {/* Top Section: Cover on Left, Beside Cover on Right: Title, Tags, Genre, Progress */}
-              <div className="flex flex-col sm:flex-row gap-4 items-start bg-[var(--app-card-sub)] p-4 rounded-xl border border-[var(--app-border)]">
+              <div className="flex flex-row gap-3 sm:gap-4 items-start bg-[var(--app-card-sub)] p-3 sm:p-4 rounded-xl border border-[var(--app-border)]">
                 {/* Book Cover */}
-                <div className="w-28 sm:w-32 h-40 sm:h-44 rounded-xl overflow-hidden bg-[var(--app-card)] border border-[var(--app-border)] shrink-0 shadow-md relative">
+                <div className="w-20 sm:w-28 md:w-32 h-28 sm:h-40 md:h-44 rounded-xl overflow-hidden bg-[var(--app-card)] border border-[var(--app-border)] shrink-0 shadow-md relative">
                   {selectedProjectForDetail.coverUrl ? (
                     <img
                       src={selectedProjectForDetail.coverUrl}

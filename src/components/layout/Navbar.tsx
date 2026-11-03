@@ -16,6 +16,7 @@ import {
   Maximize,
   Minimize,
   Lock,
+  Glasses,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -66,6 +67,7 @@ export const Navbar: React.FC = () => {
   const navLinks: { id: MainTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'editor', label: 'Editor', icon: Feather },
     { id: 'bible', label: 'World Bible', icon: Compass },
+    { id: 'reader', label: 'View as Reader', icon: Glasses },
     { id: 'preview', label: 'Pratinjau Buku', icon: BookOpen },
     { id: 'publish', label: 'Publikasi', icon: Share2 },
     { id: 'projects', label: 'Proyek', icon: FolderKanban },
@@ -221,7 +223,7 @@ export const Navbar: React.FC = () => {
                         <div className="truncate">
                           <p className="truncate leading-tight">{t.label}</p>
                           {t.fontNote && (
-                            <span className="text-[9px] text-[var(--app-text-muted)] font-mono block">
+                            <span className="text-[10px] text-[var(--app-text-muted)] font-mono block">
                               {t.fontNote}
                             </span>
                           )}

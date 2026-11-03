@@ -1,13 +1,110 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="128" fill="#070709"/>
-  <!-- Subtle dark geometric halo -->
-  <circle cx="256" cy="256" r="180" fill="none" stroke="#222430" stroke-width="3" stroke-dasharray="8 8" opacity="0.6"/>
-  <circle cx="256" cy="256" r="140" fill="#0e0f16"/>
-  <!-- Stylized Gothic Quill & Thorn / Sword in Bubblegum Pink -->
-  <path d="M370 120 C340 100, 290 120, 240 170 C190 220, 150 280, 140 370 C155 355, 175 340, 200 330 C205 285, 240 245, 290 215 C330 190, 360 155, 370 120 Z" fill="#f472b6"/>
-  <path d="M140 370 L170 380 L180 350 Z" fill="#ffffff"/>
-  <!-- Obsidian Thorn Spikes -->
-  <path d="M220 250 L200 230 L235 240 Z" fill="#fb7185"/>
-  <path d="M280 190 L270 160 L295 180 Z" fill="#fb7185"/>
-  <circle cx="256" cy="256" r="6" fill="#ffffff"/>
+  <defs>
+    <!-- Light Bubblegum Pink Gradient -->
+    <linearGradient id="bubblegumPink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFC5DA"/>
+      <stop offset="50%" stop-color="#FFB3CE"/>
+      <stop offset="100%" stop-color="#FFA6C5"/>
+    </linearGradient>
+
+    <!-- Subtle soft inner glow for aesthetic depth -->
+    <radialGradient id="softGlow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#FFA6C5" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Sleek Ink Black Feather Gradient -->
+    <linearGradient id="blackInk" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#242428"/>
+      <stop offset="45%" stop-color="#141416"/>
+      <stop offset="100%" stop-color="#08080a"/>
+    </linearGradient>
+
+    <!-- Nib metallic highlight -->
+    <linearGradient id="nibMetallic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a3a40"/>
+      <stop offset="50%" stop-color="#1c1c20"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </linearGradient>
+  </defs>
+
+  <!-- App Icon Background: Light Bubblegum Pink Squircle -->
+  <rect width="512" height="512" rx="118" fill="url(#bubblegumPink)"/>
+  <rect width="512" height="512" rx="118" fill="url(#softGlow)"/>
+
+  <!-- Aesthetic Minimalist Outer Ring -->
+  <circle cx="256" cy="256" r="196" fill="none" stroke="#FF85AD" stroke-width="2.5" opacity="0.35" stroke-dasharray="6 6"/>
+
+  <!-- Aesthetic Quill Feather Pen in Deep Black (Pena Bulu Angsa) -->
+  <g transform="translate(18, -12)">
+    <!-- Right Vane of Feather (Curved, soft natural feather contours with delicate slits) -->
+    <path d="M 378 88
+             C 388 120, 396 168, 382 216
+             C 378 228, 368 238, 355 240
+             C 372 248, 376 270, 362 296
+             C 350 318, 328 338, 298 358
+             C 282 368, 268 376, 252 384
+             C 252 376, 256 360, 266 342
+             C 278 320, 298 292, 314 260
+             C 318 252, 314 246, 308 248
+             C 328 214, 344 176, 352 136
+             C 356 116, 364 98, 378 88 Z"
+          fill="url(#blackInk)" />
+
+    <!-- Left Vane of Feather (Slender, graceful inner plume) -->
+    <path d="M 376 88
+             C 342 98, 298 126, 254 168
+             C 214 206, 186 248, 168 288
+             C 162 302, 166 312, 178 308
+             C 170 324, 174 336, 186 338
+             C 198 340, 214 332, 230 320
+             C 246 308, 262 290, 274 274
+             C 280 266, 276 260, 270 262
+             C 292 228, 322 184, 348 144
+             C 362 122, 372 102, 376 88 Z"
+          fill="url(#blackInk)" />
+
+    <!-- Central Shaft / Rachis (Tapering from top feather tip down to the nib) -->
+    <path d="M 378 88
+             C 348 136, 300 206, 256 276
+             C 218 336, 184 394, 156 430
+             L 148 424
+             C 176 386, 212 328, 250 266
+             C 296 196, 344 128, 374 86
+             Z"
+          fill="#050507" />
+
+    <!-- Metal Calligraphy Nib Collar & Tip (Ujung Pena) -->
+    <path d="M 160 418
+             L 174 430
+             L 142 458
+             C 138 462, 132 464, 128 460
+             C 126 456, 128 450, 132 446
+             L 160 418 Z"
+          fill="url(#nibMetallic)" />
+
+    <!-- Pen Nib Slit and Vent Hole -->
+    <circle cx="150" cy="442" r="3" fill="#FFB3CE" />
+    <line x1="150" y1="442" x2="130" y2="460" stroke="#FFB3CE" stroke-width="1.8" stroke-linecap="round" />
+
+    <!-- Subtle aesthetic feather vein striations -->
+    <path d="M 360 148 C 342 168, 328 182, 316 192" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 342 188 C 322 210, 306 226, 292 238" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 320 236 C 300 260, 284 278, 270 292" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+
+    <path d="M 318 160 C 292 180, 268 198, 246 216" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 284 204 C 258 226, 234 246, 214 266" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+    <path d="M 252 254 C 226 278, 204 300, 186 322" stroke="#383842" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+
+    <!-- Small Aesthetic Ink Drop beside Nib -->
+    <path d="M 112 458 C 112 452, 118 444, 118 444 C 118 444, 124 452, 124 458 C 124 461.3, 121.3 464, 118 464 C 114.7 464, 112 461.3, 112 458 Z" fill="#121216"/>
+
+    <!-- Tiny sparkle stars for aesthetic literary flair -->
+    <g transform="translate(382, 110) scale(0.8)">
+      <path d="M 0 -12 Q 0 0 12 0 Q 0 0 0 12 Q 0 0 -12 0 Q 0 0 0 -12 Z" fill="#FFFFFF" opacity="0.9"/>
+    </g>
+    <g transform="translate(196, 380) scale(0.55)">
+      <path d="M 0 -12 Q 0 0 12 0 Q 0 0 0 12 Q 0 0 -12 0 Q 0 0 0 -12 Z" fill="#FFFFFF" opacity="0.8"/>
+    </g>
+  </g>
 </svg>

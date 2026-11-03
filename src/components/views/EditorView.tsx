@@ -97,9 +97,6 @@ export const EditorView: React.FC = () => {
     requestConfirm,
   } = useNovel();
 
-  // Mode Baca (Reader Mode) state for preview reading in editor
-  const [isReaderMode, setIsReaderMode] = useState(false);
-
   // Responsive sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -187,7 +184,7 @@ export const EditorView: React.FC = () => {
       setCharCount(0);
       prevChapterIdRef.current = null;
     }
-  }, [activeChapterId, activeChapter?.id, isReaderMode]);
+  }, [activeChapterId, activeChapter?.id]);
 
   // Handle ESC for Zen Mode
   useEffect(() => {
@@ -240,50 +237,6 @@ export const EditorView: React.FC = () => {
         createSnapshot(activeChapter.id, 'Auto-save Time Machine');
         snapshotTimerRef.current = null;
       }, 15 * 60 * 1000);
-    }
-  };
-
-  // Safe toggle between Reader Mode and Write Mode without losing plot/text
-  const handleToggleReaderMode = (targetMode?: boolean) => {
-    const nextMode = targetMode !== undefined ? targetMode : !isReaderMode;
-
-    if (nextMode) {
-      // Switching into Reader Mode:
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-        autoSaveTimerRef.current = null;
-      }
-      // Immediately flush current editor HTML and title into novel state
-      if (editorRef.current && activeChapter) {
-        const currentHtml = editorRef.current.innerHTML;
-        updateChapter(activeChapter.id, {
-          content: currentHtml,
-          title: title,
-        });
-      }
-      setIsReaderMode(true);
-    } else {
-      // Switching back to Write Mode:
-      setIsReaderMode(false);
-      // Ensure editor content is intact and focus it
-      setTimeout(() => {
-        if (editorRef.current && activeChapter) {
-          const currentText = editorRef.current.innerText?.trim();
-          if (!currentText || editorRef.current.innerHTML === '<p><br></p>') {
-            const initialHtml = activeChapter.content || '<p><br></p>';
-            if (!initialHtml.includes('<p>') && !initialHtml.includes('<div>') && initialHtml.includes('\n')) {
-              editorRef.current.innerHTML = initialHtml
-                .split(/\n\s*\n/)
-                .map((p) => `<p>${p.trim()}</p>`)
-                .join('');
-            } else {
-              editorRef.current.innerHTML = initialHtml || '<p><br></p>';
-            }
-          }
-          updateCounts();
-          editorRef.current.focus();
-        }
-      }, 50);
     }
   };
 
@@ -363,6 +316,37 @@ export const EditorView: React.FC = () => {
     handleEditorInput();
     if (editorRef.current) {
       editorRef.current.focus();
+    }
+  };
+
+  // Scene Break / Dinkus (***) for scene transitions in a chapter
+  const handleInsertSceneBreak = () => {
+    if (!editorRef.current) return;
+    const sceneBreakHtml = `<div class="scene-divider my-6 text-center select-none" contenteditable="false"><span class="text-xs sm:text-sm font-serif tracking-[0.6em] text-[var(--app-accent)] font-bold inline-block py-1">* * *</span></div><p><br></p>`;
+    execCmd('insertHTML', sceneBreakHtml);
+    handleEditorInput();
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    showToast('Pembatas adegan (* * *) berhasil disisipkan!');
+  };
+
+  // Keyboard shortcut for typing *** + Enter to auto-convert to scene break
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const anchorNode = selection.anchorNode;
+        const text = anchorNode?.textContent?.trim();
+        if (text === '***' || text === '* * *') {
+          e.preventDefault();
+          // Remove the typed *** text node
+          if (anchorNode && anchorNode.parentNode) {
+            anchorNode.textContent = '';
+          }
+          handleInsertSceneBreak();
+        }
+      }
     }
   };
 
@@ -664,7 +648,7 @@ export const EditorView: React.FC = () => {
     });
   };
 
-  // Toggle or Insert To Be Continued (ukuran 7-9px) at end of manuscript
+  // Toggle or Insert To Be Continued at end of manuscript
   const handleToggleToBeContinued = () => {
     if (!editorRef.current) return;
     const existing = editorRef.current.querySelector('.tbc-marker');
@@ -673,20 +657,20 @@ export const EditorView: React.FC = () => {
       handleEditorInput();
       showToast('Penutup "To Be Continued" dihapus.');
     } else {
-      const tbcHtml = `<div class="tbc-marker my-8 text-center select-none" contenteditable="false"><span class="text-[8px] font-mono font-bold uppercase tracking-[0.25em] text-[var(--app-accent)] px-3 py-1 rounded-full border border-[var(--app-accent)]/40 bg-[var(--app-accent-bg)] inline-block">— TO BE CONTINUED —</span></div><p><br></p>`;
+      const tbcHtml = `<div class="tbc-marker my-8 text-center select-none" contenteditable="false"><span class="text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-[var(--app-accent)] px-3 py-1 rounded-full border border-[var(--app-accent)]/40 bg-[var(--app-accent-bg)] inline-block">— TO BE CONTINUED —</span></div><p><br></p>`;
       editorRef.current.innerHTML += tbcHtml;
       handleEditorInput();
       showToast('Penutup "— TO BE CONTINUED —" berhasil disisipkan di akhir naskah!');
     }
   };
 
-  // Insert Tempat & Tanggal Penulisan (ukuran 6-7px) at end of manuscript
+  // Insert Tempat & Tanggal Penulisan at end of manuscript
   const handleApplyDateLocation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editorRef.current) return;
     const cleanCity = dateLocationForm.city.trim() || 'Jakarta';
     const cleanDate = dateLocationForm.date.trim() || new Date().getFullYear().toString();
-    const dateLocHtml = `<div class="writing-date-location my-5 text-right select-none" contenteditable="false"><span class="text-[6.5px] font-mono italic text-[var(--app-text-muted)] tracking-wider">— ${cleanCity}, ${cleanDate}</span></div><p><br></p>`;
+    const dateLocHtml = `<div class="writing-date-location my-5 text-right select-none" contenteditable="false"><span class="text-[10px] font-mono italic text-[var(--app-text-muted)] tracking-wider">— ${cleanCity}, ${cleanDate}</span></div><p><br></p>`;
     editorRef.current.innerHTML += dateLocHtml;
     handleEditorInput();
     setShowDateModal(false);
@@ -977,12 +961,12 @@ export const EditorView: React.FC = () => {
                     <div className="min-w-0 flex-1 pr-2">
                       <div className="flex items-center gap-1.5">
                         {isProlog && (
-                          <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[var(--app-accent)] text-black font-semibold">
+                          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--app-accent)] text-black font-semibold">
                             Prolog
                           </span>
                         )}
                         {isEpilog && (
-                          <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-[var(--app-accent)] text-black font-semibold">
+                          <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-[var(--app-accent)] text-black font-semibold">
                             Epilog
                           </span>
                         )}
@@ -1093,20 +1077,6 @@ export const EditorView: React.FC = () => {
                     </span>
                   )}
                 </button>
-
-                {/* 3. Mode Baca (rata kiri tepat dibawah daftar chapter) */}
-                <button
-                  onClick={() => handleToggleReaderMode()}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                    isReaderMode
-                      ? 'border-[var(--app-accent)] bg-[var(--app-accent)] text-black shadow-xs'
-                      : 'border-[var(--app-border)] bg-[var(--app-card)] text-[var(--app-text)] hover:border-[var(--app-accent)]'
-                  }`}
-                  title={isReaderMode ? 'Kembali ke Mode Tulis (Edit)' : 'Beralih ke Mode Baca (Pratinjau)'}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>{isReaderMode ? 'Mode Tulis' : 'Mode Baca'}</span>
-                </button>
               </div>
 
               {/* Right Stack (Rata Kanan):
@@ -1157,32 +1127,8 @@ export const EditorView: React.FC = () => {
           </div>
         )}
 
-        {/* READER MODE TOP BANNER - Centered */}
-        {!isZenMode && isReaderMode && (
-          <div className="border-b border-[var(--app-border)] bg-[var(--app-card-sub)] px-4 sm:px-6 py-2 transition-colors">
-            <div className="w-full max-w-4xl mx-auto flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[var(--app-accent-bg)] text-[var(--app-accent)] font-semibold text-[11px] uppercase tracking-wider">
-                  <Eye className="w-3 h-3" />
-                  Mode Baca
-                </span>
-                <span className="text-[var(--app-text-muted)] hidden sm:inline">
-                  Pratinjau membaca bersih tanpa gangguan tombol editing.
-                </span>
-              </div>
-              <button
-                onClick={() => handleToggleReaderMode(false)}
-                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-[var(--app-card)] border border-[var(--app-border)] text-xs font-medium text-[var(--app-text)] hover:border-[var(--app-accent)] transition-colors"
-              >
-                <Edit3 className="w-3 h-3 text-[var(--app-accent)]" />
-                <span>Kembali ke Mode Tulis</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* RICH TEXT FORMATTING TOOLBAR - Centered in Fullscreen & Windowed Modes */}
-        {!isZenMode && !isReaderMode && (
+        {!isZenMode && (
           <div className="border-b border-[var(--app-border)] bg-[var(--app-card)] px-3 sm:px-6 py-2 transition-colors">
             <div className="w-full max-w-5xl mx-auto flex items-center justify-center gap-1.5 overflow-x-auto flex-wrap">
               {/* Inline Text Styles: B, I, U */}
@@ -1332,6 +1278,19 @@ export const EditorView: React.FC = () => {
                   className="hidden"
                   onChange={handleEditorImageUpload}
                 />
+              </div>
+
+              {/* Pembatas Adegan Baru (* * * / Dinkus) */}
+              <div className="border-r border-[var(--app-border)] pr-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleInsertSceneBreak}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[var(--app-text)] hover:bg-[var(--app-card-sub)] hover:text-[var(--app-accent)] transition-colors group"
+                  title="Sisipkan Pembatas Adegan Baru (* * *)"
+                >
+                  <span className="text-xs font-serif font-black tracking-widest text-[var(--app-accent)] group-hover:scale-110 transition-transform">***</span>
+                  <span className="text-[11px] font-medium hidden sm:inline">Adegan</span>
+                </button>
               </div>
 
               {/* Highlight Menu (10 Colors) Trigger */}
@@ -1504,82 +1463,8 @@ export const EditorView: React.FC = () => {
               </div>
             ) : (
               <>
-                {/* CLEAN READER MODE VIEW (ACTIVE WHEN isReaderMode IS TRUE) */}
-                {isReaderMode && (
-                  <div className="w-full space-y-6 animate-in fade-in duration-200">
-                    <div className="pb-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--app-accent)] block mb-1">
-                          {activeProject?.category === 'series'
-                            ? `${activeProject.seriesTitle || 'Seri'} · ${activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}`
-                            : (activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`)}
-                        </span>
-                        <h1
-                          className={`text-2xl sm:text-3xl font-bold text-[var(--app-text)] leading-tight ${getFontClass()}`}
-                          style={{ fontFamily: getFontFamilyInline() }}
-                        >
-                          {title || activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}
-                        </h1>
-                        <p className="text-xs text-[var(--app-text-muted)] mt-1.5">
-                          {activeProject?.title} · Oleh <strong className="text-[var(--app-text)]">{activeProject?.authorName || 'Penulis'}</strong>
-                        </p>
-                      </div>
-
-                      {activeChapter && (
-                        <button
-                          type="button"
-                          onClick={handleDeleteCurrentChapter}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-500/30 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors shrink-0"
-                          title="Hapus Chapter ini"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Hapus</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div
-                      className={`editor-rich-content flex-1 text-[var(--app-text)] leading-relaxed select-text transition-colors ${getFontClass()}`}
-                      style={{
-                        fontFamily: getFontFamilyInline(),
-                        fontSize: `${typesetting.fontSize}px`,
-                        lineHeight: typesetting.lineHeight,
-                        textIndent: typesetting.paragraphIndent ? '2em' : '0px',
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          (editorRef.current?.innerHTML && editorRef.current.innerHTML !== '<p><br></p>')
-                            ? editorRef.current.innerHTML
-                            : (activeChapter?.content || '<p class="italic text-[var(--app-text-muted)]">Chapter ini belum memiliki isi draf.</p>'),
-                      }}
-                    />
-
-                    {/* Bottom Manuscript Accessories for Reader Mode */}
-                    <div className="mt-8 pt-4 border-t border-[var(--app-border)]/50 flex flex-wrap items-center justify-between gap-3 select-none">
-                      <button
-                        type="button"
-                        onClick={() => setShowDateModal(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[7px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
-                        title="Atur / Sisipkan Tempat & Tanggal Penulisan (Ukuran 6-7px)"
-                      >
-                        <MapPin className="w-2.5 h-2.5 text-[var(--app-accent)]" />
-                        <span>+ Tempat &amp; Tanggal Penulisan</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleToggleToBeContinued}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--app-accent)]/50 bg-[var(--app-accent-bg)] text-[8px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--app-accent)] hover:opacity-90 active:scale-95 transition-all shadow-xs"
-                        title="Sisipkan penutup To Be Continued (Ukuran 7-9px)"
-                      >
-                        <span>— TO BE CONTINUED —</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* WRITE MODE EDITOR (KEPT PERMANENTLY MOUNTED IN DOM TO PREVENT ANY DATA LOSS) */}
-                <div className={`w-full flex flex-col flex-1 ${isReaderMode ? 'hidden' : ''}`}>
+                {/* WRITE MODE EDITOR */}
+                <div className="w-full flex flex-col flex-1">
                   {/* Chapter Title Input & Delete Button */}
                   <div className="mb-4 pb-2 border-b border-[var(--app-border)] flex items-center justify-between gap-3">
                     <input
@@ -1606,8 +1491,9 @@ export const EditorView: React.FC = () => {
                   {/* Rich ContentEditable Manuscript Editor */}
                   <div
                     ref={editorRef}
-                    contentEditable={!isReaderMode}
+                    contentEditable={true}
                     onInput={handleEditorInput}
+                    onKeyDown={handleEditorKeyDown}
                     onClick={handleEditorClick}
                     data-placeholder="Mulai menulis draf ceritamu di sini..."
                     className={`editor-rich-content flex-1 min-h-[500px] bg-transparent text-[var(--app-text)] focus:outline-none leading-relaxed transition-colors ${getFontClass()}`}
@@ -1621,26 +1507,26 @@ export const EditorView: React.FC = () => {
 
                   {/* Bottom Manuscript Accessories (To Be Continued & Tempat Tanggal Penulisan) */}
                   <div className="mt-8 pt-4 border-t border-[var(--app-border)]/50 flex flex-wrap items-center justify-between gap-3 select-none">
-                    {/* Add Tempat & Tanggal Penulisan (Ukuran Font 6-7px) */}
+                    {/* Add Tempat & Tanggal Penulisan */}
                     <div>
                       <button
                         type="button"
                         onClick={() => setShowDateModal(true)}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[7px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
-                        title="Sisipkan Tempat & Tanggal Penulisan di akhir naskah (Ukuran 6-7px)"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[10px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
+                        title="Sisipkan Tempat & Tanggal Penulisan di akhir naskah"
                       >
                         <MapPin className="w-2.5 h-2.5 text-[var(--app-accent)]" />
                         <span>+ Tempat &amp; Tanggal Penulisan</span>
                       </button>
                     </div>
 
-                    {/* Tombol To Be Continued (Ukuran 7-9px) */}
+                    {/* Tombol To Be Continued */}
                     <div>
                       <button
                         type="button"
                         onClick={handleToggleToBeContinued}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--app-accent)]/50 bg-[var(--app-accent-bg)] text-[8px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--app-accent)] hover:opacity-90 active:scale-95 transition-all shadow-xs"
-                        title="Sisipkan penutup To Be Continued (Ukuran 7-9px) di akhir naskah"
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--app-accent)]/50 bg-[var(--app-accent-bg)] text-[10px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--app-accent)] hover:opacity-90 active:scale-95 transition-all shadow-xs"
+                        title="Sisipkan penutup To Be Continued di akhir naskah"
                       >
                         <span>— TO BE CONTINUED —</span>
                       </button>
@@ -1652,10 +1538,10 @@ export const EditorView: React.FC = () => {
           </div>
         </div>
 
-        {/* Editor Bottom Footer - Word & Char Counter (Rata Kanan, Ukuran 7-8px) */}
+        {/* Editor Bottom Footer - Word & Char Counter (Rata Kanan, Ukuran 10px) */}
         {!isZenMode && (
           <footer className="border-t border-[var(--app-border)] bg-[var(--app-card)] px-4 sm:px-6 py-1 flex items-center justify-end shrink-0 z-10 transition-colors">
-            <span className="text-[7.5px] font-mono text-[var(--app-text-muted)] tracking-wider">
+            <span className="text-[10px] font-mono text-[var(--app-text-muted)] tracking-wider">
               {wordCount} kata · {charCount} kar
             </span>
           </footer>

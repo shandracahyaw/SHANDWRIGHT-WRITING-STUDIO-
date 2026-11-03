@@ -430,7 +430,7 @@ export const WorldBibleView: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap mb-1">
                           <span
-                            className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded border ${
+                            className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
                               roleColors[char.role]
                             }`}
                           >
@@ -684,7 +684,7 @@ export const WorldBibleView: React.FC = () => {
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span
-                          className={`text-[9px] font-mono uppercase px-2 py-0.5 rounded border ${
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded border ${
                             statusStyles[clue.status].color
                           }`}
                         >

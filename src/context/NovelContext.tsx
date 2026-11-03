@@ -25,7 +25,7 @@ import {
   DEFAULT_TYPESETTING,
 } from '../utils/initialData';
 
-export type MainTab = 'projects' | 'editor' | 'bible' | 'preview' | 'publish';
+export type MainTab = 'projects' | 'editor' | 'bible' | 'preview' | 'publish' | 'reader';
 export type BibleSubTab = 'characters' | 'settings' | 'clues' | 'scenes';
 
 export interface ConfirmModalState {

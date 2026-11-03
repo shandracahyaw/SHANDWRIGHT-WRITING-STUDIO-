@@ -971,7 +971,7 @@ export const BookPreviewView: React.FC = () => {
                 <div className="text-left pt-2 border-t border-[var(--app-border)] text-[10px] font-mono text-[var(--app-text-muted)] shrink-0 flex items-center justify-between">
                   <span>{leftPage.pageNumber}</span>
                   {leftPage.type === 'chapter' && leftPage.totalChapterPages && leftPage.totalChapterPages > 1 && (
-                    <span className="text-[9px] text-[var(--app-text-muted)] opacity-70">
+                    <span className="text-[10px] text-[var(--app-text-muted)] opacity-70">
                       Bagian {leftPage.chapterPageIndex} dari {leftPage.totalChapterPages}
                     </span>
                   )}
@@ -1010,7 +1010,7 @@ export const BookPreviewView: React.FC = () => {
               {/* Page Number */}
               <div className="text-right pt-2 border-t border-[var(--app-border)] text-[10px] font-mono text-[var(--app-text-muted)] shrink-0 flex items-center justify-between">
                 {rightPage.type === 'chapter' && rightPage.totalChapterPages && rightPage.totalChapterPages > 1 ? (
-                  <span className="text-[9px] text-[var(--app-text-muted)] opacity-70">
+                  <span className="text-[10px] text-[var(--app-text-muted)] opacity-70">
                     Bagian {rightPage.chapterPageIndex} dari {rightPage.totalChapterPages}
                   </span>
                 ) : <span />}
