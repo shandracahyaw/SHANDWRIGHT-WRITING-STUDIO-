@@ -39,6 +39,7 @@ import {
   Quote,
   Image as ImageIcon,
   Tag,
+  MapPin,
 } from 'lucide-react';
 
 const TEXT_COLORS = [
@@ -576,7 +577,14 @@ export const EditorView: React.FC = () => {
     showToast(`Cerita "${created.title}" berhasil dibuat! Siap menulis.`);
   };
 
-  // Offline automatic photo upload directly into the editor
+  // State for Tempat & Tanggal Penulisan modal
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [dateLocationForm, setDateLocationForm] = useState({
+    city: 'Jakarta',
+    date: new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()),
+  });
+
+  // Offline automatic photo upload directly into the editor with built-in revision delete button
   const handleEditorImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -592,14 +600,14 @@ export const EditorView: React.FC = () => {
       if (!base64Url) return;
 
       const cleanName = file.name.replace(/\.[^/.]+$/, '');
-      const imgHtml = `<figure class="my-4 text-center select-none" contenteditable="false"><img src="${base64Url}" alt="${cleanName}" class="max-w-full max-h-[480px] rounded-2xl mx-auto shadow-md border border-[var(--app-border)] object-contain" /><figcaption class="text-[11px] text-[var(--app-text-muted)] italic mt-1.5 font-mono">Ilustrasi: ${cleanName}</figcaption></figure><p><br></p>`;
+      const imgHtml = `<figure class="my-4 text-center relative group inline-block max-w-full" contenteditable="false"><div class="relative inline-block max-w-full"><img src="${base64Url}" alt="${cleanName}" class="max-w-full max-h-[480px] rounded-2xl mx-auto shadow-md border border-[var(--app-border)] object-contain" /><button type="button" class="chapter-img-del-btn absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white text-[11px] font-sans px-2.5 py-1 rounded-lg shadow-md cursor-pointer transition-all flex items-center gap-1 z-20" title="Hapus foto ini untuk revisi">✕ Hapus Foto</button></div><figcaption class="text-[11px] text-[var(--app-text-muted)] italic mt-1.5 font-mono">Ilustrasi: ${cleanName}</figcaption></figure><p><br></p>`;
 
       if (editorRef.current) {
         editorRef.current.focus();
         document.execCommand('insertHTML', false, imgHtml);
         handleEditorInput();
       }
-      showToast(`Foto "${file.name}" berhasil diunggah secara offline!`);
+      showToast(`Foto "${file.name}" berhasil diunggah! Tombol "Hapus Foto" tersedia jika ingin revisi.`);
     };
 
     reader.onerror = () => {
@@ -608,6 +616,81 @@ export const EditorView: React.FC = () => {
 
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  // Click handler to delete uploaded photos or inject revision delete button
+  const handleEditorClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const delBtn = target.closest('.chapter-img-del-btn');
+    if (delBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const figure = delBtn.closest('figure');
+      if (figure) {
+        figure.remove();
+        handleEditorInput();
+        showToast('Foto berhasil dihapus dari naskah!');
+      }
+      return;
+    }
+
+    // If an image inside figure is clicked and lacks a delete button, inject one for easy revision
+    if (target.tagName.toLowerCase() === 'img') {
+      const figure = target.closest('figure');
+      if (figure && !figure.querySelector('.chapter-img-del-btn')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className =
+          'chapter-img-del-btn absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white text-[11px] font-sans px-2.5 py-1 rounded-lg shadow-md cursor-pointer transition-all flex items-center gap-1 z-20';
+        btn.innerHTML = '✕ Hapus Foto';
+        target.parentElement?.classList.add('relative');
+        target.parentElement?.appendChild(btn);
+        showToast('Tombol "✕ Hapus Foto" ditambahkan di atas gambar untuk revisi.', 'info');
+      }
+    }
+  };
+
+  // Delete current active chapter
+  const handleDeleteCurrentChapter = () => {
+    if (!activeChapter) return;
+    requestConfirm({
+      title: 'Hapus Chapter Naskah',
+      message: `Yakin ingin menghapus "${activeChapter.title || `Chapter ${activeChapter.chapterNumber}`}"? Tindakan ini tidak dapat dibatalkan.`,
+      confirmLabel: 'Hapus Chapter',
+      onConfirm: () => {
+        deleteChapter(activeChapter.id);
+        showToast(`Chapter berhasil dihapus.`);
+      },
+    });
+  };
+
+  // Toggle or Insert To Be Continued (ukuran 7-9px) at end of manuscript
+  const handleToggleToBeContinued = () => {
+    if (!editorRef.current) return;
+    const existing = editorRef.current.querySelector('.tbc-marker');
+    if (existing) {
+      existing.remove();
+      handleEditorInput();
+      showToast('Penutup "To Be Continued" dihapus.');
+    } else {
+      const tbcHtml = `<div class="tbc-marker my-8 text-center select-none" contenteditable="false"><span class="text-[8px] font-mono font-bold uppercase tracking-[0.25em] text-[var(--app-accent)] px-3 py-1 rounded-full border border-[var(--app-accent)]/40 bg-[var(--app-accent-bg)] inline-block">— TO BE CONTINUED —</span></div><p><br></p>`;
+      editorRef.current.innerHTML += tbcHtml;
+      handleEditorInput();
+      showToast('Penutup "— TO BE CONTINUED —" berhasil disisipkan di akhir naskah!');
+    }
+  };
+
+  // Insert Tempat & Tanggal Penulisan (ukuran 6-7px) at end of manuscript
+  const handleApplyDateLocation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editorRef.current) return;
+    const cleanCity = dateLocationForm.city.trim() || 'Jakarta';
+    const cleanDate = dateLocationForm.date.trim() || new Date().getFullYear().toString();
+    const dateLocHtml = `<div class="writing-date-location my-5 text-right select-none" contenteditable="false"><span class="text-[6.5px] font-mono italic text-[var(--app-text-muted)] tracking-wider">— ${cleanCity}, ${cleanDate}</span></div><p><br></p>`;
+    editorRef.current.innerHTML += dateLocHtml;
+    handleEditorInput();
+    setShowDateModal(false);
+    showToast(`Tempat & tanggal "${cleanCity}, ${cleanDate}" berhasil disisipkan!`);
   };
 
   const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -913,19 +996,23 @@ export const EditorView: React.FC = () => {
                     </div>
 
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         requestConfirm({
                           title: 'Hapus Chapter Naskah',
-                          message: `Yakin ingin menghapus "${chap.title || `Chapter ${chap.chapterNumber}`}"?`,
+                          message: `Yakin ingin menghapus "${chap.title || `Chapter ${chap.chapterNumber}`}"? Tindakan ini tidak dapat dibatalkan.`,
                           confirmLabel: 'Hapus Chapter',
-                          onConfirm: () => deleteChapter(chap.id),
+                          onConfirm: () => {
+                            deleteChapter(chap.id);
+                            showToast(`Chapter berhasil dihapus.`);
+                          },
                         });
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--app-text-muted)] hover:text-red-400 rounded transition-opacity"
-                      title="Hapus Chapter"
+                      className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/15 rounded-lg transition-colors shrink-0"
+                      title={`Hapus ${chap.title || `Chapter ${chap.chapterNumber}`}`}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 );
@@ -1397,72 +1484,6 @@ export const EditorView: React.FC = () => {
         {/* EDITOR WRITING CANVAS (contentEditable) */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 flex justify-center pb-24 md:pb-16">
           <div className={`w-full ${getColumnWidthClass()} flex flex-col`}>
-            {/* BOOK COVER PREVIEW BANNER (Klik untuk melihat preview sampul, nama penulis, copyright, sinopsis) */}
-            {activeProject && (
-              <div
-                onClick={openCoverModal}
-                className="mb-4 p-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] hover:border-[var(--app-accent)] transition-all cursor-pointer flex items-center justify-between group shadow-xs"
-                title="Klik untuk melihat dan menyunting rincian sampul, penulis &amp; copyright buku"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-15 rounded-lg overflow-hidden bg-[var(--app-card-sub)] border border-[var(--app-border)] shrink-0 relative shadow-xs">
-                    {activeProject.coverUrl ? (
-                      <img
-                        src={activeProject.coverUrl}
-                        alt={activeProject.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-[var(--app-text-muted)]">
-                        <BookMarked className="w-4 h-4 text-[var(--app-accent)]" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-[var(--app-accent)]">
-                      <span>{activeProject.category === 'series' ? activeProject.seriesTitle || 'Seri Buku' : 'Standalone'}</span>
-                      <span>·</span>
-                      <span>{activeProject.genre}</span>
-                    </div>
-                    <h2 className="text-sm font-bold text-[var(--app-text)] truncate group-hover:text-[var(--app-accent)] transition-colors">
-                      {activeProject.title}
-                    </h2>
-                    <div className="flex items-center gap-2 text-xs text-[var(--app-text-muted)] mt-0.5">
-                      <span>Oleh: <strong className="text-[var(--app-text)] font-medium">{activeProject.authorName || 'Penulis'}</strong></span>
-                      <span>·</span>
-                      <span className="font-mono text-[11px]">© {activeProject.copyrightYear || '2026'}</span>
-                      {activeProject.subGenre && (
-                        <>
-                          <span>·</span>
-                          <span className="italic">{activeProject.subGenre}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* STORY TAGS PREVIEW */}
-                    {activeProject.tags && activeProject.tags.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        {activeProject.tags.map((t, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[var(--app-accent)]/15 text-[var(--app-accent)] border border-[var(--app-accent)]/30"
-                          >
-                            #{t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] text-xs text-[var(--app-text)] group-hover:border-[var(--app-accent)] shrink-0 transition-colors">
-                  <BookOpen className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-                  <span className="hidden sm:inline">Rincian Sampul</span>
-                </div>
-              </div>
-            )}
-
             {/* If no chapters exist, show friendly prompt */}
             {projectChapters.length === 0 ? (
               <div className="text-center py-12 px-4 rounded-2xl border border-dashed border-[var(--app-border)] bg-[var(--app-card)] my-auto">
@@ -1486,21 +1507,35 @@ export const EditorView: React.FC = () => {
                 {/* CLEAN READER MODE VIEW (ACTIVE WHEN isReaderMode IS TRUE) */}
                 {isReaderMode && (
                   <div className="w-full space-y-6 animate-in fade-in duration-200">
-                    <div className="pb-4 border-b border-[var(--app-border)]">
-                      <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--app-accent)] block mb-1">
-                        {activeProject?.category === 'series'
-                          ? `${activeProject.seriesTitle || 'Seri'} · ${activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}`
-                          : (activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`)}
-                      </span>
-                      <h1
-                        className={`text-2xl sm:text-3xl font-bold text-[var(--app-text)] leading-tight ${getFontClass()}`}
-                        style={{ fontFamily: getFontFamilyInline() }}
-                      >
-                        {title || activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}
-                      </h1>
-                      <p className="text-xs text-[var(--app-text-muted)] mt-1.5">
-                        {activeProject?.title} · Oleh <strong className="text-[var(--app-text)]">{activeProject?.authorName || 'Penulis'}</strong>
-                      </p>
+                    <div className="pb-4 border-b border-[var(--app-border)] flex items-start justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-[var(--app-accent)] block mb-1">
+                          {activeProject?.category === 'series'
+                            ? `${activeProject.seriesTitle || 'Seri'} · ${activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}`
+                            : (activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`)}
+                        </span>
+                        <h1
+                          className={`text-2xl sm:text-3xl font-bold text-[var(--app-text)] leading-tight ${getFontClass()}`}
+                          style={{ fontFamily: getFontFamilyInline() }}
+                        >
+                          {title || activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}
+                        </h1>
+                        <p className="text-xs text-[var(--app-text-muted)] mt-1.5">
+                          {activeProject?.title} · Oleh <strong className="text-[var(--app-text)]">{activeProject?.authorName || 'Penulis'}</strong>
+                        </p>
+                      </div>
+
+                      {activeChapter && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteCurrentChapter}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-red-500/30 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors shrink-0"
+                          title="Hapus Chapter ini"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Hapus</span>
+                        </button>
+                      )}
                     </div>
 
                     <div
@@ -1518,21 +1553,54 @@ export const EditorView: React.FC = () => {
                             : (activeChapter?.content || '<p class="italic text-[var(--app-text-muted)]">Chapter ini belum memiliki isi draf.</p>'),
                       }}
                     />
+
+                    {/* Bottom Manuscript Accessories for Reader Mode */}
+                    <div className="mt-8 pt-4 border-t border-[var(--app-border)]/50 flex flex-wrap items-center justify-between gap-3 select-none">
+                      <button
+                        type="button"
+                        onClick={() => setShowDateModal(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[7px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
+                        title="Atur / Sisipkan Tempat & Tanggal Penulisan (Ukuran 6-7px)"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-[var(--app-accent)]" />
+                        <span>+ Tempat &amp; Tanggal Penulisan</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleToggleToBeContinued}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--app-accent)]/50 bg-[var(--app-accent-bg)] text-[8px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--app-accent)] hover:opacity-90 active:scale-95 transition-all shadow-xs"
+                        title="Sisipkan penutup To Be Continued (Ukuran 7-9px)"
+                      >
+                        <span>— TO BE CONTINUED —</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* WRITE MODE EDITOR (KEPT PERMANENTLY MOUNTED IN DOM TO PREVENT ANY DATA LOSS) */}
                 <div className={`w-full flex flex-col flex-1 ${isReaderMode ? 'hidden' : ''}`}>
-                  {/* Chapter Title Input */}
-                  <div className="mb-4 pb-2 border-b border-[var(--app-border)]">
+                  {/* Chapter Title Input & Delete Button */}
+                  <div className="mb-4 pb-2 border-b border-[var(--app-border)] flex items-center justify-between gap-3">
                     <input
                       type="text"
                       value={title}
                       onChange={handleTitleChange}
-                      placeholder="Judul Chapter (misal: Chapter 1 atau Prolog)..."
+                      placeholder="Judul Chapter (misal: Prolog, Chapter 1, atau Epilog)..."
                       style={{ fontFamily: getFontFamilyInline() }}
                       className={`w-full bg-transparent text-xl md:text-2xl font-bold text-[var(--app-text)] focus:outline-none placeholder-[var(--app-text-muted)] ${getFontClass()}`}
                     />
+                    {activeChapter && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteCurrentChapter}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors shrink-0 shadow-2xs"
+                        title="Hapus Chapter yang sedang aktif ini"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Hapus Bab</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Rich ContentEditable Manuscript Editor */}
@@ -1540,6 +1608,7 @@ export const EditorView: React.FC = () => {
                     ref={editorRef}
                     contentEditable={!isReaderMode}
                     onInput={handleEditorInput}
+                    onClick={handleEditorClick}
                     data-placeholder="Mulai menulis draf ceritamu di sini..."
                     className={`editor-rich-content flex-1 min-h-[500px] bg-transparent text-[var(--app-text)] focus:outline-none leading-relaxed transition-colors ${getFontClass()}`}
                     style={{
@@ -1549,6 +1618,34 @@ export const EditorView: React.FC = () => {
                       textIndent: typesetting.paragraphIndent ? '2em' : '0px',
                     }}
                   />
+
+                  {/* Bottom Manuscript Accessories (To Be Continued & Tempat Tanggal Penulisan) */}
+                  <div className="mt-8 pt-4 border-t border-[var(--app-border)]/50 flex flex-wrap items-center justify-between gap-3 select-none">
+                    {/* Add Tempat & Tanggal Penulisan (Ukuran Font 6-7px) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDateModal(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] text-[7px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:border-[var(--app-accent)] transition-all shadow-2xs"
+                        title="Sisipkan Tempat & Tanggal Penulisan di akhir naskah (Ukuran 6-7px)"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-[var(--app-accent)]" />
+                        <span>+ Tempat &amp; Tanggal Penulisan</span>
+                      </button>
+                    </div>
+
+                    {/* Tombol To Be Continued (Ukuran 7-9px) */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleToggleToBeContinued}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--app-accent)]/50 bg-[var(--app-accent-bg)] text-[8px] font-mono font-bold tracking-[0.2em] uppercase text-[var(--app-accent)] hover:opacity-90 active:scale-95 transition-all shadow-xs"
+                        title="Sisipkan penutup To Be Continued (Ukuran 7-9px) di akhir naskah"
+                      >
+                        <span>— TO BE CONTINUED —</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -2163,6 +2260,77 @@ export const EditorView: React.FC = () => {
             </button>
           </div>
         </>
+      )}
+
+      {/* MODAL: SISIPKAN TEMPAT & TANGGAL PENULISAN (UKURAN 6-7px) */}
+      {showDateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--app-border)] bg-[var(--app-card)] p-5 shadow-2xl text-[var(--app-text)] space-y-4 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)]">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[var(--app-accent)]" />
+                <h3 className="text-sm font-bold text-[var(--app-text)]">
+                  Tempat &amp; Tanggal Penulisan
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDateModal(false)}
+                className="p-1 rounded-lg text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyDateLocation} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                  Tempat / Kota Penulisan
+                </label>
+                <input
+                  type="text"
+                  value={dateLocationForm.city}
+                  onChange={(e) => setDateLocationForm({ ...dateLocationForm, city: e.target.value })}
+                  placeholder="Contoh: Jakarta, Bandung, Yogyakarta..."
+                  className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--app-text-muted)] mb-1">
+                  Tanggal Penulisan
+                </label>
+                <input
+                  type="text"
+                  value={dateLocationForm.date}
+                  onChange={(e) => setDateLocationForm({ ...dateLocationForm, date: e.target.value })}
+                  placeholder="Contoh: 3 November 2026"
+                  className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-card-sub)] px-3 py-2 text-xs text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
+                />
+              </div>
+
+              <p className="text-[10px] text-[var(--app-text-muted)] italic leading-tight">
+                Akan disisipkan rapi di bagian kanan bawah naskah dengan ukuran tipografi 6-7px.
+              </p>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--app-border)]">
+                <button
+                  type="button"
+                  onClick={() => setShowDateModal(false)}
+                  className="px-3 py-1.5 rounded-xl border border-[var(--app-border)] text-xs text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-[var(--app-accent)] text-xs font-semibold text-black hover:opacity-90 transition-all shadow-sm"
+                >
+                  Sisipkan ke Naskah
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
