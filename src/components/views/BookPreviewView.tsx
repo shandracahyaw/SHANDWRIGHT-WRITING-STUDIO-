@@ -410,6 +410,8 @@ export const BookPreviewView: React.FC = () => {
 
   const getFontFamily = () => {
     switch (typesetting.fontFamily) {
+      case 'Cormorant Garamond':
+        return 'font-cormorant';
       case 'EB Garamond':
         return 'font-garamond';
       case 'Baskervville':
@@ -429,12 +431,14 @@ export const BookPreviewView: React.FC = () => {
       case 'Questrial':
         return 'font-questrial';
       default:
-        return 'font-garamond';
+        return 'font-cormorant';
     }
   };
 
   const getFontFamilyInline = () => {
     switch (typesetting.fontFamily) {
+      case 'Cormorant Garamond':
+        return "'Cormorant Garamond', 'EB Garamond', Garamond, 'Times New Roman', Georgia, serif";
       case 'EB Garamond':
         return "'EB Garamond', Garamond, Georgia, serif";
       case 'Baskervville':
@@ -454,7 +458,7 @@ export const BookPreviewView: React.FC = () => {
       case 'Questrial':
         return "'Questrial', -apple-system, BlinkMacSystemFont, sans-serif";
       default:
-        return "'EB Garamond', Garamond, Georgia, serif";
+        return "'Cormorant Garamond', 'EB Garamond', Garamond, Georgia, serif";
     }
   };
 

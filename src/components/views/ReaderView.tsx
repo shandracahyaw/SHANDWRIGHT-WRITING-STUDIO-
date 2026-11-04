@@ -1,39 +1,26 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNovel } from '../../context/NovelContext';
-import { useLocalAuth } from '../auth/LocalAuthGate';
 import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  MessageSquare,
-  Share2,
+  ArrowLeft,
+  List,
   Type,
   Sparkles,
   Download,
   Copy,
   Check,
   X,
-  Send,
-  Heart,
-  Trash2,
-  BookMarked,
-  Quote,
-  Feather,
+  Upload,
+  Image as ImageIcon,
   ScrollText,
   BookText,
+  Eye,
+  Star,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  BookMarked,
+  RotateCcw,
 } from 'lucide-react';
-
-interface LineComment {
-  id: string;
-  chapterId: string;
-  paragraphIndex: number;
-  quotedText?: string;
-  author: string;
-  content: string;
-  timestamp: string;
-  likes: number;
-  isLiked?: boolean;
-}
 
 type ReaderTheme = 'default' | 'wattpad-dark' | 'wattpad-cream' | 'wattpad-white';
 type ReadMode = 'scrolling' | 'paging';
@@ -41,6 +28,7 @@ type CardStyle = 'obsidian' | 'maroon' | 'parchment' | 'emerald' | 'violet';
 
 // Editor font options for identical typography
 const FONT_OPTIONS: { id: string; label: string; inline: string; className: string }[] = [
+  { id: 'Cormorant Garamond', label: 'Cormorant Garamond (Elegan)', inline: "'Cormorant Garamond', 'EB Garamond', Garamond, 'Times New Roman', Georgia, serif", className: 'font-cormorant' },
   { id: 'EB Garamond', label: 'EB Garamond (Klasik)', inline: "'EB Garamond', Garamond, Georgia, serif", className: 'font-garamond' },
   { id: 'Baskervville', label: 'Baskerville (Elegan)', inline: "'Baskervville', Baskerville, Georgia, serif", className: 'font-baskerville' },
   { id: 'Merriweather', label: 'Merriweather (Tajam)', inline: "'Merriweather', Georgia, serif", className: 'font-merriweather' },
@@ -58,41 +46,28 @@ export const ReaderView: React.FC = () => {
     chapters,
     activeChapterId,
     setActiveChapterId,
+    updateChapter,
     setActiveTab,
     typesetting,
     showToast,
-    requestConfirm,
   } = useNovel();
 
-  const { username } = useLocalAuth();
-
   // Reader Preferences
-  const [readMode, setReadMode] = useState<ReadMode>('scrolling');
-  const [readerTheme, setReaderTheme] = useState<ReaderTheme>('default');
+  const [readMode, setReadMode] = useState<ReadMode>('paging');
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>('wattpad-dark');
   const [selectedFont, setSelectedFont] = useState<string>(typesetting.fontFamily || 'EB Garamond');
   const [fontSize, setFontSize] = useState<number>(Math.max(10, typesetting.fontSize || 18));
   const [showSettings, setShowSettings] = useState(false);
+  const [showChapterDrawer, setShowChapterDrawer] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
 
   // Paging state
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageTurnAnimation, setPageTurnAnimation] = useState<'next' | 'prev' | null>(null);
 
-  // Purely author's personal exploratory comments (no mock readers)
-  const [comments, setComments] = useState<LineComment[]>(() => {
-    try {
-      const saved = localStorage.getItem('jaeyyyiii_author_reader_notes_v2');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    return [];
-  });
-
-  const [selectedParagraphIdx, setSelectedParagraphIdx] = useState<number | null>(null);
-  const [selectedParagraphText, setSelectedParagraphText] = useState<string>('');
-  const [filterBySelectedLine, setFilterBySelectedLine] = useState(false);
-  const [newCommentText, setNewCommentText] = useState('');
-  const [commentAuthor, setCommentAuthor] = useState(username || 'Catatan Pribadi');
+  // Touch gesture tracking for book-page swipe
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   // Text selection & Quote Share Card Modal
   const [selectionRange, setSelectionRange] = useState<{
@@ -107,7 +82,6 @@ export const ReaderView: React.FC = () => {
   const [isCopied, setIsCopied] = useState(false);
 
   const contentContainerRef = useRef<HTMLDivElement>(null);
-  const commentsSectionRef = useRef<HTMLDivElement>(null);
 
   // Sorted chapters for current project
   const projectChapters = useMemo(() => {
@@ -134,15 +108,6 @@ export const ReaderView: React.FC = () => {
   }, [projectChapters, activeChapterId]);
 
   const activeChapter = projectChapters[currentChapterIndex] || projectChapters[0];
-
-  // Save comments to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('jaeyyyiii_author_reader_notes_v2', JSON.stringify(comments));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [comments]);
 
   // Reset page when chapter changes
   useEffect(() => {
@@ -199,7 +164,7 @@ export const ReaderView: React.FC = () => {
     return textLines.length > 0 ? textLines.map((t) => `<p>${t}</p>`) : ['Chapter ini masih kosong.'];
   }, [activeChapter]);
 
-  // Paging division: ~3-4 paragraphs per page
+  // Paging division: ~3 paragraphs per page for natural book-like density
   const paragraphsPerPage = 3;
   const totalPages = Math.max(1, Math.ceil(parsedParagraphs.length / paragraphsPerPage));
 
@@ -209,29 +174,136 @@ export const ReaderView: React.FC = () => {
     return parsedParagraphs.slice(start, start + paragraphsPerPage);
   }, [parsedParagraphs, readMode, currentPage]);
 
-  // Keyboard navigation for Paging mode
+  // Turn Page handlers with animation
+  const flipToNextPage = () => {
+    if (currentPage < totalPages) {
+      setPageTurnAnimation('next');
+      setTimeout(() => {
+        setCurrentPage((p) => p + 1);
+        setPageTurnAnimation(null);
+        contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 160);
+    } else if (currentChapterIndex < projectChapters.length - 1) {
+      // Last page of current chapter: advance to next chapter
+      setActiveChapterId(projectChapters[currentChapterIndex + 1].id);
+      setCurrentPage(1);
+      showToast('Beralih ke chapter berikutnya');
+    }
+  };
+
+  const flipToPrevPage = () => {
+    if (currentPage > 1) {
+      setPageTurnAnimation('prev');
+      setTimeout(() => {
+        setCurrentPage((p) => p - 1);
+        setPageTurnAnimation(null);
+        contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 160);
+    } else if (currentChapterIndex > 0) {
+      // First page: return to previous chapter
+      setActiveChapterId(projectChapters[currentChapterIndex - 1].id);
+      setCurrentPage(1);
+      showToast('Kembali ke chapter sebelumnya');
+    }
+  };
+
+  // Keyboard navigation for Paging mode (Arrow keys)
   useEffect(() => {
     if (readMode !== 'paging') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-        if (currentPage < totalPages) {
-          setCurrentPage((p) => p + 1);
-          contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        flipToNextPage();
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        if (currentPage > 1) {
-          setCurrentPage((p) => p - 1);
-          contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        flipToPrevPage();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [readMode, currentPage, totalPages]);
+  }, [readMode, currentPage, totalPages, currentChapterIndex, projectChapters]);
+
+  // Touch Swipe gestures (Buka buku pake geser jari / swipe)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (readMode !== 'paging') return;
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (readMode !== 'paging' || !touchStartRef.current) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const elapsed = Date.now() - touchStartRef.current.time;
+
+    touchStartRef.current = null;
+
+    // Must be primarily horizontal swipe
+    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && elapsed < 800) {
+      if (deltaX < 0) {
+        // Swiped Left -> Next Page
+        flipToNextPage();
+      } else {
+        // Swiped Right -> Previous Page
+        flipToPrevPage();
+      }
+    }
+  };
+
+  // Screen Edge Tap Zones (Sentuh sisi kanan buka halaman selanjutnya, sentuh sisi kiri buka sebelumnya)
+  const handlePageAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (readMode !== 'paging') return;
+    // Don't turn page if user is selecting text or clicking buttons
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, textarea, a, select')) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const width = rect.width;
+
+    if (clickX > width * 0.7) {
+      // Right 30% -> Next Page
+      flipToNextPage();
+    } else if (clickX < width * 0.3) {
+      // Left 30% -> Prev Page
+      flipToPrevPage();
+    }
+  };
+
+  // Banner image upload handler (Gambar Pendukung)
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChapter) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Pilih file gambar yang valid (JPG, PNG, WebP)', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        updateChapter(activeChapter.id, { bannerUrl: reader.result });
+        showToast('Gambar pendukung bab berhasil diunggah!');
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveBanner = () => {
+    if (!activeChapter) return;
+    updateChapter(activeChapter.id, { bannerUrl: undefined });
+    showToast('Gambar pendukung dihapus');
+  };
 
   // Detect selection for floating action popover
-  const handleMouseUp = () => {
+  const handleSelectionDetect = () => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
       setSelectionRange(null);
@@ -263,101 +335,6 @@ export const ReaderView: React.FC = () => {
     setShareQuoteText(quote);
     setShowShareModal(true);
     setSelectionRange(null);
-  };
-
-  const handleCommentOnSelectedText = (textToComment?: string) => {
-    const snippet = textToComment || selectionRange?.text;
-    if (snippet) {
-      setSelectedParagraphText(snippet);
-      setSelectedParagraphIdx(999);
-      setFilterBySelectedLine(true);
-      setSelectionRange(null);
-      commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  // Add Comment (Card Ketikan)
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCommentText.trim()) {
-      showToast('Tuliskan catatan terlebih dahulu', 'error');
-      return;
-    }
-
-    const newComment: LineComment = {
-      id: 'c_' + Date.now(),
-      chapterId: activeChapter?.id || '',
-      paragraphIndex: selectedParagraphIdx ?? 0,
-      quotedText: selectedParagraphText ? selectedParagraphText.slice(0, 160) : undefined,
-      author: commentAuthor.trim() || username || 'Catatan Pribadi',
-      content: newCommentText.trim(),
-      timestamp: 'Baru saja',
-      likes: 1,
-      isLiked: true,
-    };
-
-    setComments((prev) => [newComment, ...prev]);
-    setNewCommentText('');
-    showToast('Card ketikan berhasil disimpan!');
-  };
-
-  // Like comment
-  const handleToggleLike = (id: string) => {
-    setComments((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          const isLiked = !c.isLiked;
-          return {
-            ...c,
-            isLiked,
-            likes: isLiked ? c.likes + 1 : Math.max(0, c.likes - 1),
-          };
-        }
-        return c;
-      })
-    );
-  };
-
-  // Delete comment
-  const handleDeleteComment = (id: string) => {
-    requestConfirm({
-      title: 'Hapus Card Ketikan',
-      message: 'Hapus catatan komentar ketikan ini dari daftar eksplorasi?',
-      confirmLabel: 'Hapus',
-      onConfirm: () => {
-        setComments((prev) => prev.filter((c) => c.id !== id));
-        showToast('Card ketikan berhasil dihapus');
-      },
-    });
-  };
-
-  // Filtered comments for this chapter
-  const chapterComments = useMemo(() => {
-    return comments.filter(
-      (c) => !c.chapterId || !activeChapter || c.chapterId === activeChapter.id
-    );
-  }, [comments, activeChapter]);
-
-  const displayedComments = useMemo(() => {
-    if (filterBySelectedLine && selectedParagraphText) {
-      return chapterComments.filter((c) => c.quotedText === selectedParagraphText.slice(0, 160));
-    }
-    return chapterComments;
-  }, [chapterComments, filterBySelectedLine, selectedParagraphText]);
-
-  // Navigate chapters
-  const handlePrevChapter = () => {
-    if (currentChapterIndex > 0) {
-      setActiveChapterId(projectChapters[currentChapterIndex - 1].id);
-      contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleNextChapter = () => {
-    if (currentChapterIndex < projectChapters.length - 1) {
-      setActiveChapterId(projectChapters[currentChapterIndex + 1].id);
-      contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   // Copy share card text
@@ -476,7 +453,7 @@ export const ReaderView: React.FC = () => {
   const themeClasses = useMemo(() => {
     switch (readerTheme) {
       case 'wattpad-dark':
-        return 'bg-[#0b0c0e] text-[#e4e5e7] border-[#222429]';
+        return 'bg-[#0b0c0e] text-[#f0f0f2] border-[#222429]';
       case 'wattpad-cream':
         return 'bg-[#fbf7ed] text-[#2b2b2b] border-[#e2dcd0]';
       case 'wattpad-white':
@@ -490,103 +467,53 @@ export const ReaderView: React.FC = () => {
     return FONT_OPTIONS.find((f) => f.id === selectedFont) || FONT_OPTIONS[0];
   }, [selectedFont]);
 
+  // Active banner image (either uploaded chapter banner or fallback to project cover)
+  const bannerImageSrc = activeChapter?.bannerUrl || activeProject?.coverUrl;
+
   return (
     <div className={`flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-4.25rem)] overflow-hidden transition-colors ${themeClasses}`}>
-      {/* Top Wattpad Reader Bar (Hapus waktu baca, vote, dan emot komentar) */}
-      <header className="border-b border-inherit px-3 sm:px-6 py-2.5 flex items-center justify-between gap-3 shrink-0 backdrop-blur-md bg-inherit/90 z-20">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* ==============================================================
+          TOP BAR (Wattpad Reader Navigation matching reference image)
+          [←]   [PARANOIR]                  [Aa]  [daftar chapter list]
+          ============================================================== */}
+      <header className="border-b border-inherit px-3 sm:px-6 py-3 flex items-center justify-between gap-3 shrink-0 backdrop-blur-md bg-inherit/90 z-30">
+        {/* Left: Back button + Book Title in uppercase */}
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => setActiveTab('editor')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-inherit hover:border-[var(--app-accent)] text-xs font-semibold hover:text-[var(--app-accent)] transition-all shrink-0"
+            className="p-1.5 rounded-xl hover:bg-white/10 text-inherit transition-colors shrink-0"
             title="Kembali ke Editor Naskah"
           >
-            <Feather className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-            <span className="hidden sm:inline">Editor</span>
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
           </button>
 
-          <div className="h-4 w-px bg-inherit opacity-40 shrink-0" />
-
-          {/* Chapter Selector Dropdown */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <BookMarked className="w-4 h-4 text-[var(--app-accent)] shrink-0 hidden xs:inline" />
-            <select
-              value={activeChapter?.id || ''}
-              onChange={(e) => {
-                setActiveChapterId(e.target.value);
-                setCurrentPage(1);
-                contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="bg-inherit border border-inherit rounded-xl px-2.5 py-1 text-xs font-bold focus:outline-none focus:border-[var(--app-accent)] max-w-[150px] sm:max-w-[260px] truncate"
-            >
-              {projectChapters.map((c) => (
-                <option key={c.id} value={c.id} className="bg-neutral-900 text-white">
-                  {c.title || `Chapter ${c.chapterNumber}`}
-                </option>
-              ))}
-            </select>
-          </div>
+          <h2 className="text-sm sm:text-base font-extrabold uppercase tracking-wide truncate text-inherit">
+            {activeProject?.title || 'PARANOIR'}
+          </h2>
         </div>
 
-        {/* Right Controls: Mode Baca (Scrolling / Paging) & Settings */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {/* Mode Baca Toggle: Scrolling vs Paging */}
-          <div className="inline-flex items-center p-0.5 rounded-xl border border-inherit bg-inherit">
-            <button
-              type="button"
-              onClick={() => {
-                setReadMode('scrolling');
-                showToast('Mode Baca: Gulir Kontinu (Scrolling)');
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                readMode === 'scrolling'
-                  ? 'bg-[var(--app-accent)] text-black shadow-xs font-bold'
-                  : 'opacity-70 hover:opacity-100 text-inherit'
-              }`}
-              title="Mode Baca: Gulir Kontinu (Scrolling)"
-            >
-              <ScrollText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Gulir</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setReadMode('paging');
-                setCurrentPage(1);
-                showToast('Mode Baca: Halaman demi Halaman (Paging)');
-              }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                readMode === 'paging'
-                  ? 'bg-[var(--app-accent)] text-black shadow-xs font-bold'
-                  : 'opacity-70 hover:opacity-100 text-inherit'
-              }`}
-              title="Mode Baca: Halaman demi Halaman (Paging)"
-            >
-              <BookText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Paging</span>
-            </button>
-          </div>
-
-          {/* Quick jump to Card Komentar */}
-          <button
-            onClick={() => commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-inherit hover:border-[var(--app-accent)] text-xs font-medium transition-all"
-            title="Buka Card Komentar & Catatan"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-            <span className="text-[10px] font-bold hidden sm:inline">Komentar</span>
-          </button>
-
-          {/* Settings Menu Toggle (Font, Ukuran, Tema) */}
+        {/* Right: Page Settings (Aa) & Daftar Chapter Menu List */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Settings Trigger (Aa) */}
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`p-1.5 rounded-xl border transition-colors ${
+            className={`flex items-center justify-center px-2.5 py-1.5 rounded-xl border text-sm font-serif font-bold transition-all ${
               showSettings
-                ? 'border-[var(--app-accent)] bg-[var(--app-accent-bg)] text-[var(--app-accent)]'
-                : 'border-inherit text-inherit hover:border-[var(--app-accent)]'
+                ? 'border-[var(--app-accent)] bg-[var(--app-accent-bg)] text-[var(--app-accent)] shadow-xs'
+                : 'border-inherit hover:border-[var(--app-accent)] text-inherit'
             }`}
-            title="Pengaturan Bentuk Font, Ukuran & Tema"
+            title="Page setting: Ukuran Font, Jenis Font, Scroll/Paging & Tema"
           >
-            <Type className="w-4 h-4" />
+            <span>Aa</span>
+          </button>
+
+          {/* Daftar Chapter Menu Drawer Trigger */}
+          <button
+            onClick={() => setShowChapterDrawer(true)}
+            className="p-1.5 rounded-xl border border-inherit hover:border-[var(--app-accent)] text-inherit hover:text-[var(--app-accent)] transition-all shrink-0"
+            title="Buka Daftar Chapter"
+          >
+            <List className="w-5 h-5 stroke-[2.2]" />
           </button>
         </div>
       </header>
@@ -601,106 +528,221 @@ export const ReaderView: React.FC = () => {
         </div>
       )}
 
-      {/* Reader Settings Drawer (collapsible) */}
+      {/* ==============================================================
+          PAGE SETTING DRAWER (Aa)
+          Ukuran font, jenis font, page setting (scroll/paging), tema app
+          ============================================================== */}
       {showSettings && (
-        <div className="border-b border-inherit bg-inherit/95 px-4 sm:px-6 py-3.5 shrink-0 shadow-lg animate-in slide-in-from-top-2 duration-150 z-20">
-          <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            {/* 1. Bentuk Font (Daftar font yang persis sama dengan di Editor) */}
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-inherit opacity-75 block">
-                Bentuk Font:
-              </label>
-              <select
-                value={selectedFont}
-                onChange={(e) => setSelectedFont(e.target.value)}
-                className="w-full bg-inherit border border-inherit rounded-xl px-2.5 py-1.5 text-xs text-inherit focus:outline-none focus:border-[var(--app-accent)]"
+        <div className="border-b border-inherit bg-inherit/98 px-4 sm:px-6 py-4 shrink-0 shadow-2xl animate-in slide-in-from-top-2 duration-150 z-30">
+          <div className="max-w-2xl mx-auto space-y-3.5 text-xs">
+            <div className="flex items-center justify-between border-b border-inherit/40 pb-2">
+              <span className="font-extrabold text-xs uppercase tracking-wider text-[var(--app-accent)]">
+                Pengaturan Tampilan Baca (Page Setting)
+              </span>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-1 rounded-lg hover:bg-black/20 text-inherit opacity-70"
               >
-                {FONT_OPTIONS.map((f) => (
-                  <option key={f.id} value={f.id} className="bg-neutral-900 text-white">
-                    {f.label}
-                  </option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* 2. Ukuran Font (Batas Terkecil 10px) */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between text-[10px] uppercase font-bold text-inherit opacity-75">
-                <span>Ukuran Font:</span>
-                <span className="font-mono">{fontSize}px (Min 10px)</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* 1. Page Setting (Mode Baca: Scroll vs Paging Geser Buku) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-inherit opacity-75 block">
+                  Mode Baca:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl border border-inherit bg-inherit">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadMode('scrolling');
+                      showToast('Mode Baca: Gulir (Scroll)');
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      readMode === 'scrolling'
+                        ? 'bg-[var(--app-accent)] text-black font-bold shadow-xs'
+                        : 'opacity-70 hover:opacity-100 text-inherit'
+                    }`}
+                  >
+                    <ScrollText className="w-3.5 h-3.5" />
+                    <span>Scroll</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadMode('paging');
+                      setCurrentPage(1);
+                      showToast('Mode Paging: Geser / Sentuh layar untuk buka buku');
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      readMode === 'paging'
+                        ? 'bg-[var(--app-accent)] text-black font-bold shadow-xs'
+                        : 'opacity-70 hover:opacity-100 text-inherit'
+                    }`}
+                  >
+                    <BookText className="w-3.5 h-3.5" />
+                    <span>Paging</span>
+                  </button>
+                </div>
+                <p className="text-[10px] text-inherit opacity-60">
+                  {readMode === 'paging'
+                    ? '💡 Paging: sentuh sisi layar atau swipe pake tangan kayak buka buku.'
+                    : '💡 Scroll: membaca bergulir vertikal tanpa jeda.'}
+                </p>
               </div>
-              <div className="flex items-center gap-2 pt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setFontSize((s) => Math.max(10, s - 1))}
-                  className="w-8 h-8 rounded-xl border border-inherit flex items-center justify-center font-bold hover:border-[var(--app-accent)] shrink-0"
-                >
-                  A-
-                </button>
-                <input
-                  type="range"
-                  min="10"
-                  max="26"
-                  step="1"
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Math.max(10, parseInt(e.target.value) || 10))}
-                  className="w-full accent-[var(--app-accent)] cursor-pointer"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFontSize((s) => Math.min(26, s + 1))}
-                  className="w-8 h-8 rounded-xl border border-inherit flex items-center justify-center font-bold hover:border-[var(--app-accent)] shrink-0"
-                >
-                  A+
-                </button>
-              </div>
-            </div>
 
-            {/* 3. Tema Warna Tampilan */}
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-bold text-inherit opacity-75 block">
-                Tema Membaca:
-              </label>
-              <div className="grid grid-cols-4 gap-1 p-0.5 rounded-xl border border-inherit bg-inherit text-center">
-                <button
-                  onClick={() => setReaderTheme('default')}
-                  className={`py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                    readerTheme === 'default' ? 'bg-[var(--app-accent)] text-black font-bold' : 'opacity-70'
-                  }`}
+              {/* 2. Jenis Font (Daftar font yang persis sama dengan Editor) */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-inherit opacity-75 block">
+                  Bentuk / Jenis Font:
+                </label>
+                <select
+                  value={selectedFont}
+                  onChange={(e) => setSelectedFont(e.target.value)}
+                  className="w-full bg-inherit border border-inherit rounded-xl px-2.5 py-2 text-xs text-inherit focus:outline-none focus:border-[var(--app-accent)]"
                 >
-                  Studio
-                </button>
-                <button
-                  onClick={() => setReaderTheme('wattpad-dark')}
-                  className={`py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                    readerTheme === 'wattpad-dark' ? 'bg-neutral-800 text-amber-300 font-bold' : 'opacity-70'
-                  }`}
-                >
-                  Dark
-                </button>
-                <button
-                  onClick={() => setReaderTheme('wattpad-cream')}
-                  className={`py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                    readerTheme === 'wattpad-cream' ? 'bg-[#e2dcd0] text-black font-bold' : 'opacity-70'
-                  }`}
-                >
-                  Sepia
-                </button>
-                <button
-                  onClick={() => setReaderTheme('wattpad-white')}
-                  className={`py-1 rounded-lg text-[10px] font-semibold transition-colors ${
-                    readerTheme === 'wattpad-white' ? 'bg-white text-black font-bold shadow-xs' : 'opacity-70'
-                  }`}
-                >
-                  Putih
-                </button>
+                  {FONT_OPTIONS.map((f) => (
+                    <option key={f.id} value={f.id} className="bg-neutral-900 text-white">
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Ukuran Font (Min 10px) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] uppercase font-bold text-inherit opacity-75">
+                  <span>Ukuran Font:</span>
+                  <span className="font-mono">{fontSize}px (Min 10)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFontSize((s) => Math.max(10, s - 1))}
+                    className="w-8 h-8 rounded-xl border border-inherit flex items-center justify-center font-bold hover:border-[var(--app-accent)] shrink-0"
+                  >
+                    A-
+                  </button>
+                  <input
+                    type="range"
+                    min="10"
+                    max="28"
+                    step="1"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(Math.max(10, parseInt(e.target.value) || 10))}
+                    className="w-full accent-[var(--app-accent)] cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFontSize((s) => Math.min(28, s + 1))}
+                    className="w-8 h-8 rounded-xl border border-inherit flex items-center justify-center font-bold hover:border-[var(--app-accent)] shrink-0"
+                  >
+                    A+
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. Tema App / Tema Baca */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold text-inherit opacity-75 block">
+                  Tema Tampilan:
+                </label>
+                <div className="grid grid-cols-4 gap-1 p-1 rounded-xl border border-inherit bg-inherit text-center">
+                  <button
+                    onClick={() => setReaderTheme('wattpad-dark')}
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      readerTheme === 'wattpad-dark' ? 'bg-neutral-800 text-amber-300 font-bold ring-1 ring-amber-300' : 'opacity-70'
+                    }`}
+                  >
+                    Dark
+                  </button>
+                  <button
+                    onClick={() => setReaderTheme('wattpad-cream')}
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      readerTheme === 'wattpad-cream' ? 'bg-[#e2dcd0] text-black font-bold ring-1 ring-amber-700' : 'opacity-70'
+                    }`}
+                  >
+                    Sepia
+                  </button>
+                  <button
+                    onClick={() => setReaderTheme('wattpad-white')}
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      readerTheme === 'wattpad-white' ? 'bg-white text-black font-bold shadow-xs' : 'opacity-70'
+                    }`}
+                  >
+                    Putih
+                  </button>
+                  <button
+                    onClick={() => setReaderTheme('default')}
+                    className={`py-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      readerTheme === 'default' ? 'bg-[var(--app-accent)] text-black font-bold' : 'opacity-70'
+                    }`}
+                  >
+                    Studio
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Action Popover on Highlighted Text */}
+      {/* ==============================================================
+          DAFTAR CHAPTER DRAWER (Slide-over drawer on right)
+          ============================================================== */}
+      {showChapterDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-xs sm:max-w-sm h-full bg-[var(--app-card)] border-l border-[var(--app-border)] p-4 sm:p-5 flex flex-col text-[var(--app-text)] shadow-2xl animate-in slide-in-from-right duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--app-border)] shrink-0">
+              <div className="flex items-center gap-2">
+                <BookMarked className="w-4 h-4 text-[var(--app-accent)]" />
+                <h3 className="text-sm font-bold text-[var(--app-text)]">
+                  Daftar Chapter
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowChapterDrawer(false)}
+                className="p-1 rounded-lg hover:bg-[var(--app-card-sub)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-3 space-y-1.5">
+              {projectChapters.map((chap, idx) => {
+                const isActive = chap.id === activeChapter?.id;
+                return (
+                  <button
+                    key={chap.id}
+                    onClick={() => {
+                      setActiveChapterId(chap.id);
+                      setCurrentPage(1);
+                      setShowChapterDrawer(false);
+                      contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border text-xs transition-all flex items-center justify-between gap-2 ${
+                      isActive
+                        ? 'border-[var(--app-accent)] bg-[var(--app-accent-bg)] text-[var(--app-accent)] font-bold shadow-xs'
+                        : 'border-transparent hover:border-[var(--app-border)] bg-[var(--app-card-sub)] text-[var(--app-text)]'
+                    }`}
+                  >
+                    <span className="truncate">
+                      {chap.title || `Chapter ${chap.chapterNumber}`}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-60 shrink-0">
+                      #{idx + 1}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Popover on Highlighted Text (Share Card Kutipan) */}
       {selectionRange && (
         <div
           className="fixed z-50 -translate-x-1/2 -translate-y-full mb-2 flex items-center gap-1 p-1 rounded-2xl bg-black/90 text-white backdrop-blur-md border border-[var(--app-accent)]/50 shadow-2xl animate-in zoom-in-95 duration-100"
@@ -713,411 +755,156 @@ export const ReaderView: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Share Card Kutipan</span>
           </button>
-          <button
-            onClick={() => handleCommentOnSelectedText()}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl hover:bg-white/10 text-xs font-semibold transition-colors"
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-            <span>Komentari</span>
-          </button>
         </div>
       )}
 
-      {/* Main Reader Scroll View */}
+      {/* ==============================================================
+          MAIN READER VIEWPORT
+          Touch Swipe + Edge Tap gestures for Paging Mode
+          ============================================================== */}
       <div
         ref={contentContainerRef}
-        onMouseUp={handleMouseUp}
-        onTouchEnd={handleMouseUp}
-        className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-12 py-8 scroll-smooth"
+        onMouseUp={handleSelectionDetect}
+        onTouchEnd={(e) => {
+          handleTouchEnd(e);
+          handleSelectionDetect();
+        }}
+        onTouchStart={handleTouchStart}
+        onClick={handlePageAreaClick}
+        className={`flex-1 overflow-y-auto scroll-smooth select-text relative ${
+          readMode === 'paging' ? 'cursor-pointer touch-pan-y' : ''
+        }`}
       >
-        <article className="max-w-2xl mx-auto space-y-6">
-          {/* Chapter Title Banner (Tanpa waktu baca, vote, dan emot komentar) */}
-          <div className="pb-6 border-b border-inherit space-y-3">
-            <div className="flex items-center gap-3">
-              {activeProject?.coverUrl && (
-                <div className="w-14 h-20 rounded-lg overflow-hidden border border-inherit shadow-md shrink-0 bg-neutral-900">
-                  <img
-                    src={activeProject.coverUrl}
-                    alt={activeProject.title}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--app-accent)] font-bold">
-                  {activeProject?.genre} · {activeProject?.status || 'Sedang Ditulis'}
-                </div>
-                <h2 className="text-sm font-bold text-inherit opacity-80 truncate">
-                  {activeProject?.title || 'Judul Naskah'}
-                </h2>
-                <p className="text-xs text-inherit opacity-60">
-                  Karya <strong className="text-inherit opacity-90">{activeProject?.authorName || 'Shandra Cahya'}</strong>
-                </p>
+        <article className="max-w-2xl mx-auto pb-16">
+          {/* ==============================================================
+              HERO HEADER: GAMBAR PENDUKUNG BAB
+              Annotation: "upload field gambar pendukung"
+              ============================================================== */}
+          <div className="relative w-full h-56 sm:h-72 overflow-hidden bg-neutral-900 border-b border-inherit/40 group">
+            {bannerImageSrc ? (
+              <img
+                src={bannerImageSrc}
+                alt="Gambar Pendukung Bab"
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover opacity-60"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-neutral-800 to-neutral-950 text-neutral-400">
+                <ImageIcon className="w-12 h-12 opacity-30" />
               </div>
-            </div>
+            )}
 
-            <div className="pt-2 flex items-center justify-between gap-3">
-              <h1
-                className="text-2xl sm:text-3xl font-extrabold tracking-tight text-inherit leading-tight"
-                style={{ fontFamily: activeFontObj.inline }}
+            {/* Dark gradient fade over banner bottom for cinematic mood */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+
+            {/* Banner upload trigger button overlay */}
+            <div className="absolute top-3 right-3 flex items-center gap-2 z-10 opacity-80 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => bannerFileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/80 hover:bg-black text-white text-[10px] font-semibold border border-white/20 backdrop-blur-md transition-all shadow-md"
+                title="Unggah Gambar Pendukung / Header Bab"
               >
-                {activeChapter?.title || `Chapter ${activeChapter?.chapterNumber || 1}`}
-              </h1>
-
-              {/* In Paging mode: show Page indicator at top */}
-              {readMode === 'paging' && (
-                <span className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-inherit bg-inherit shrink-0">
-                  Hal {currentPage} / {totalPages}
-                </span>
+                <Upload className="w-3 h-3 text-[var(--app-accent)]" />
+                <span>{activeChapter?.bannerUrl ? 'Ganti Gambar' : 'Upload Gambar Pendukung'}</span>
+              </button>
+              {activeChapter?.bannerUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveBanner}
+                  className="p-1.5 rounded-xl bg-red-600/80 hover:bg-red-700 text-white text-[10px] transition-all shadow-md"
+                  title="Hapus gambar pendukung"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               )}
+              <input
+                ref={bannerFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleBannerUpload}
+              />
             </div>
           </div>
 
-          {/* Chapter Paragraphs (Rendered for Scrolling OR Paging) */}
+          {/* ==============================================================
+              CHAPTER TITLE & STATS COUNTERS
+              PROLOGUE - The Last Archives (Draft)
+              👁 5   ⭐ 0   💬 0
+              ============================================================== */}
+          <div className="px-5 sm:px-8 pt-6 pb-6 text-center space-y-3">
+            <h1
+              className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-inherit leading-snug"
+              style={{ fontFamily: activeFontObj.inline }}
+            >
+              {activeChapter?.title || 'PROLOGUE - The Last Archives'} (Draft)
+            </h1>
+
+            {/* Wattpad Style Simple Stats Icons: 👁 5   ⭐ 0   💬 0 */}
+            <div className="flex items-center justify-center gap-4 text-xs text-inherit opacity-75 font-mono">
+              <span className="flex items-center gap-1">
+                <Eye className="w-3.5 h-3.5" />
+                <span>5</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <Star className="w-3.5 h-3.5" />
+                <span>0</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>0</span>
+              </span>
+            </div>
+          </div>
+
+          {/* ==============================================================
+              CHAPTER MANUSCRIPT CONTENT BODY
+              In Paging Mode: Touch Swipe / Edge Tap to flip pages
+              ============================================================== */}
           <div
-            className={`space-y-6 leading-relaxed selection:bg-[var(--app-accent)] selection:text-black ${activeFontObj.className}`}
+            className={`px-5 sm:px-8 space-y-6 leading-relaxed selection:bg-[var(--app-accent)] selection:text-black transition-opacity duration-150 ${
+              pageTurnAnimation ? 'opacity-30' : 'opacity-100'
+            } ${activeFontObj.className}`}
             style={{
               fontFamily: activeFontObj.inline,
               fontSize: `${fontSize}px`,
               lineHeight: 1.85,
             }}
           >
-            {currentPageParagraphs.map((paragraphHtml, idx) => {
-              const actualIdx = readMode === 'paging' ? (currentPage - 1) * paragraphsPerPage + idx : idx;
-
-              const tempEl = document.createElement('div');
-              tempEl.innerHTML = paragraphHtml;
-              const textContent = tempEl.innerText.trim();
-
-              const lineComments = chapterComments.filter(
-                (c) =>
-                  c.paragraphIndex === actualIdx ||
-                  (c.quotedText && textContent.includes(c.quotedText.slice(0, 40)))
-              );
-
-              const isSelectedLine =
-                selectedParagraphIdx === actualIdx ||
-                (selectedParagraphText && textContent.includes(selectedParagraphText.slice(0, 40)));
-
-              return (
-                <div
-                  key={actualIdx}
-                  className={`group relative rounded-xl p-1.5 transition-all ${
-                    isSelectedLine
-                      ? 'bg-[var(--app-accent)]/10 ring-1 ring-[var(--app-accent)]/40'
-                      : 'hover:bg-inherit/40'
-                  }`}
-                >
-                  <div
-                    dangerouslySetInnerHTML={{ __html: paragraphHtml }}
-                    className="cursor-text"
-                  />
-
-                  {/* Inline Comment Bubble Button (on right edge) */}
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 opacity-0 group-hover:opacity-100 sm:opacity-80 transition-opacity flex items-center gap-1 z-10">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedParagraphIdx(actualIdx);
-                        setSelectedParagraphText(textContent.slice(0, 140));
-                        setFilterBySelectedLine(true);
-                        commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shadow-sm transition-transform active:scale-90 ${
-                        lineComments.length > 0
-                          ? 'bg-[var(--app-accent)] text-black'
-                          : 'bg-inherit border border-inherit text-inherit opacity-70 hover:opacity-100'
-                      }`}
-                      title={
-                        lineComments.length > 0
-                          ? `${lineComments.length} catatan pada baris ini`
-                          : 'Beri catatan pada baris ini'
-                      }
-                    >
-                      <MessageSquare className="w-2.5 h-2.5" />
-                      <span>{lineComments.length > 0 ? lineComments.length : '+'}</span>
-                    </button>
-
-                    {textContent.length > 10 && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenShareCard(textContent)}
-                        className="p-1 rounded-full bg-inherit border border-inherit text-inherit opacity-60 hover:opacity-100 hover:text-[var(--app-accent)] transition-colors shadow-2xs hidden sm:flex"
-                        title="Buat Share Card Kutipan dari baris ini"
-                      >
-                        <Sparkles className="w-2.5 h-2.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Paging Mode: Page-by-Page Navigator */}
-          {readMode === 'paging' && (
-            <div className="pt-6 border-t border-inherit flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentPage > 1) {
-                    setCurrentPage((p) => p - 1);
-                    contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
-                }}
-                disabled={currentPage <= 1}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-inherit text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:border-[var(--app-accent)] transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>Halaman Sebelumnya</span>
-              </button>
-
-              <span className="text-xs font-mono font-bold text-inherit">
-                {currentPage} / {totalPages}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (currentPage < totalPages) {
-                    setCurrentPage((p) => p + 1);
-                    contentContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                  }
-                }}
-                disabled={currentPage >= totalPages}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-inherit text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:border-[var(--app-accent)] transition-all"
-              >
-                <span>Halaman Selanjutnya</span>
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {/* Chapter Navigation & Share Card Quick Trigger (Tanpa vote) */}
-          <div className="pt-8 pb-4 border-t border-inherit space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <button
-                onClick={handlePrevChapter}
-                disabled={currentChapterIndex <= 0}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-inherit text-xs font-semibold disabled:opacity-30 disabled:cursor-not-allowed hover:border-[var(--app-accent)] transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Chapter Sebelumnya</span>
-                <span className="sm:hidden">Sebelumnya</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const firstQuote = parsedParagraphs[0]?.replace(/<[^>]+>/g, '') || 'Kutipan cerita';
-                  handleOpenShareCard(firstQuote);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-inherit hover:border-[var(--app-accent)] text-xs font-semibold transition-all hover:text-[var(--app-accent)]"
-              >
-                <Share2 className="w-3.5 h-3.5 text-[var(--app-accent)]" />
-                <span>Share Card Kutipan</span>
-              </button>
-
-              <button
-                onClick={handleNextChapter}
-                disabled={currentChapterIndex >= projectChapters.length - 1}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--app-accent)] text-black font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-95 transition-all shadow-md ml-auto"
-              >
-                <span>Chapter Selanjutnya</span>
-                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-              </button>
-            </div>
+            {currentPageParagraphs.map((paragraphHtml, idx) => (
+              <div
+                key={idx}
+                dangerouslySetInnerHTML={{ __html: paragraphHtml }}
+                className="cursor-text"
+              />
+            ))}
           </div>
 
           {/* ==============================================================
-              SUB-FITUR KOMENTAR / CATATAN (GAYA CARD KETIKAN EKSPLORATIF)
+              PAGING HINT & BOTTOM CHAPTER FLIP
+              (No >> buttons, natural book tap & swipe navigation)
               ============================================================== */}
-          <section
-            ref={commentsSectionRef}
-            className="pt-8 border-t-2 border-inherit space-y-5 pb-16"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-[var(--app-accent)]" />
-                <h3 className="text-base sm:text-lg font-extrabold text-inherit">
-                  Card Komentar &amp; Catatan Eksplorasi (Per Baris)
-                </h3>
+          {readMode === 'paging' ? (
+            <div className="mt-12 px-5 sm:px-8 text-center space-y-3 select-none">
+              <div className="flex items-center justify-center gap-3 text-xs font-mono text-inherit opacity-60">
+                <span>Hal {currentPage} dari {totalPages}</span>
               </div>
-              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[var(--app-accent-bg)] text-[var(--app-accent)] font-bold border border-[var(--app-accent)]/30">
-                {displayedComments.length} Catatan
-              </span>
+              <p className="text-[10px] text-inherit opacity-50 italic">
+                (Sentuh sisi kiri/kanan layar atau geser jari untuk membalik halaman)
+              </p>
             </div>
-
-            {/* Selected Line Snippet Indicator */}
-            {selectedParagraphText && (
-              <div className="p-3 rounded-xl border border-[var(--app-accent)]/40 bg-[var(--app-accent)]/10 flex items-start justify-between gap-3 animate-in fade-in">
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5 font-bold text-[var(--app-accent)]">
-                    <Quote className="w-3.5 h-3.5" />
-                    <span>Baris yang sedang dikomentari:</span>
-                  </div>
-                  <p className="italic text-inherit opacity-90 line-clamp-2">
-                    "{selectedParagraphText}"
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedParagraphIdx(null);
-                    setSelectedParagraphText('');
-                    setFilterBySelectedLine(false);
-                  }}
-                  className="p-1 rounded-lg hover:bg-black/20 text-inherit opacity-70 hover:opacity-100"
-                  title="Hapus pilihan baris"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {/* Filter Toggle: All vs Selected Line */}
-            <div className="flex items-center gap-2 border-b border-inherit pb-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setFilterBySelectedLine(false)}
-                className={`px-3 py-1.5 rounded-xl font-semibold transition-all ${
-                  !filterBySelectedLine
-                    ? 'bg-[var(--app-accent)] text-black shadow-xs'
-                    : 'text-inherit opacity-70 hover:opacity-100'
-                }`}
-              >
-                Semua Card ({chapterComments.length})
-              </button>
-              {selectedParagraphText && (
-                <button
-                  type="button"
-                  onClick={() => setFilterBySelectedLine(true)}
-                  className={`px-3 py-1.5 rounded-xl font-semibold transition-all ${
-                    filterBySelectedLine
-                      ? 'bg-[var(--app-accent)] text-black shadow-xs'
-                      : 'text-inherit opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  Hanya Baris Ini
-                </button>
-              )}
+          ) : (
+            /* Scrolling Mode bottom chapter indicator */
+            <div className="mt-12 px-5 sm:px-8 pt-6 border-t border-inherit/40 text-center text-xs text-inherit opacity-60">
+              <span>Akhir dari {activeChapter?.title || 'Chapter'}</span>
             </div>
-
-            {/* TYPEWRITER COMMENT INPUT FORM */}
-            <form onSubmit={handleAddComment} className="p-4 rounded-2xl border border-inherit bg-inherit/70 shadow-sm space-y-3 font-mono">
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold text-[var(--app-accent)]">
-                    Penulis Card:
-                  </span>
-                  <input
-                    type="text"
-                    value={commentAuthor}
-                    onChange={(e) => setCommentAuthor(e.target.value)}
-                    placeholder="Nama / Label Catatan"
-                    className="bg-inherit border-b border-inherit px-2 py-0.5 text-xs text-inherit focus:outline-none focus:border-[var(--app-accent)] w-36 sm:w-48 font-mono"
-                  />
-                </div>
-                <span className="text-[10px] text-inherit opacity-60">Format Card Ketikan</span>
-              </div>
-
-              <textarea
-                rows={3}
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                placeholder={
-                  selectedParagraphText
-                    ? 'Tuliskan catatan atau reaksi eksploratif untuk baris ini...'
-                    : 'Tuliskan catatan eksplorasi atau revisi untuk bab ini...'
-                }
-                className="w-full bg-inherit border border-inherit rounded-xl p-3 text-xs text-inherit focus:outline-none focus:border-[var(--app-accent)] resize-y leading-relaxed"
-              />
-
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <p className="text-[10px] text-inherit opacity-60 font-sans hidden sm:block">
-                  Tips: Anda bisa klik tombol (+) di samping kanan baris kalimat mana pun untuk menyisipkan catatan spesifik pada baris itu.
-                </p>
-                <button
-                  type="submit"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--app-accent)] text-black font-bold text-xs hover:opacity-90 transition-all shadow-xs ml-auto"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Simpan Card Ketikan</span>
-                </button>
-              </div>
-            </form>
-
-            {/* LIST OF COMMENTS IN VINTAGE TYPEWRITER CARD STYLE ("CARD KETIKAN") */}
-            <div className="space-y-3 pt-2">
-              {displayedComments.length === 0 ? (
-                <div className="text-center py-8 px-4 rounded-2xl border border-dashed border-inherit opacity-70 space-y-1">
-                  <MessageSquare className="w-8 h-8 mx-auto opacity-50 mb-2 text-[var(--app-accent)]" />
-                  <p className="text-xs font-semibold">Belum ada card ketikan untuk bagian ini.</p>
-                  <p className="text-[10px]">Tuliskan catatan atau reaksi eksploratif pertamamu pada formulir di atas!</p>
-                </div>
-              ) : (
-                displayedComments.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 rounded-xl border border-inherit bg-inherit/40 shadow-xs space-y-2.5 transition-all hover:border-[var(--app-accent)]/50 relative group"
-                  >
-                    <div className="flex items-center justify-between gap-2 border-b border-inherit/40 pb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-[var(--app-accent)]/20 text-[var(--app-accent)] flex items-center justify-center text-xs font-bold font-mono">
-                          {item.author.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-xs font-bold font-mono text-inherit">
-                          {item.author}
-                        </span>
-                        <span className="text-[10px] font-mono text-inherit opacity-50">
-                          · {item.timestamp}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLike(item.id)}
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono font-medium transition-colors ${
-                            item.isLiked
-                              ? 'text-rose-500 bg-rose-500/10 font-bold'
-                              : 'text-inherit opacity-60 hover:opacity-100 hover:text-rose-500'
-                          }`}
-                          title="Tandai suka / penting"
-                        >
-                          <Heart className={`w-3 h-3 ${item.isLiked ? 'fill-rose-500' : ''}`} />
-                          <span>{item.likes}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteComment(item.id)}
-                          className="p-1 rounded-lg text-inherit opacity-40 hover:opacity-100 hover:text-red-400 transition-colors"
-                          title="Hapus card ketikan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {item.quotedText && (
-                      <div className="p-2 rounded-lg bg-inherit/60 border-l-2 border-[var(--app-accent)] text-[10px] italic text-inherit opacity-85 font-serif">
-                        "{item.quotedText}"
-                      </div>
-                    )}
-
-                    <p className="text-xs sm:text-sm font-mono text-inherit leading-relaxed whitespace-pre-wrap">
-                      {item.content}
-                    </p>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
+          )}
         </article>
       </div>
 
       {/* ==============================================================
-          SHARE CARD KUTIPAN MODAL (WATT PAD & KINDLE QUOTE SHARE CARD)
+          SHARE CARD KUTIPAN MODAL
           ============================================================== */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 overflow-y-auto">

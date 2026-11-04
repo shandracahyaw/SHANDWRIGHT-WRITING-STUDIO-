@@ -757,6 +757,8 @@ export const EditorView: React.FC = () => {
 
   const getFontClass = () => {
     switch (typesetting.fontFamily) {
+      case 'Cormorant Garamond':
+        return 'font-cormorant';
       case 'EB Garamond':
         return 'font-garamond';
       case 'Baskervville':
@@ -776,12 +778,14 @@ export const EditorView: React.FC = () => {
       case 'Questrial':
         return 'font-questrial';
       default:
-        return 'font-garamond';
+        return 'font-cormorant';
     }
   };
 
   const getFontFamilyInline = () => {
     switch (typesetting.fontFamily) {
+      case 'Cormorant Garamond':
+        return "'Cormorant Garamond', 'EB Garamond', Garamond, 'Times New Roman', Georgia, serif";
       case 'EB Garamond':
         return "'EB Garamond', Garamond, Georgia, serif";
       case 'Baskervville':
@@ -801,7 +805,7 @@ export const EditorView: React.FC = () => {
       case 'Questrial':
         return "'Questrial', -apple-system, BlinkMacSystemFont, sans-serif";
       default:
-        return "'EB Garamond', Garamond, Georgia, serif";
+        return "'Cormorant Garamond', 'EB Garamond', Garamond, Georgia, serif";
     }
   };
 
@@ -1360,6 +1364,7 @@ export const EditorView: React.FC = () => {
                   }
                   className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-card)] px-2 py-1 text-xs text-[var(--app-text)] focus:outline-none"
                 >
+                  <option value="Cormorant Garamond">Cormorant Garamond (Elegan)</option>
                   <option value="EB Garamond">EB Garamond (Klasik)</option>
                   <option value="Baskervville">Baskerville (Elegan)</option>
                   <option value="Merriweather">Merriweather (Tajam)</option>

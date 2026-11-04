@@ -59,6 +59,7 @@ export interface Chapter {
   summary?: string;
   wordCount: number;
   characterCount: number;
+  bannerUrl?: string;
   publishingStatus: ChapterPublishInfo[];
   createdAt: string;
   updatedAt: string;
@@ -148,6 +149,7 @@ export interface VisualScene {
 
 export interface TypesettingConfig {
   fontFamily:
+    | 'Cormorant Garamond'
     | 'EB Garamond'
     | 'Baskervville'
     | 'Merriweather'
